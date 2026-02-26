@@ -1,0 +1,86 @@
+{
+  "name": "horizon-theme",
+  "displayName": "Horizon Theme",
+  "description": "A deep immersive dark theme with Horizon Icons — crafted for focus and clarity",
+  "version": "1.0.0",
+  "publisher": "Horizon",
+  "license": "MIT",
+  "icon": "assets/icon.png",
+  "galleryBanner": {
+    "color": "#181D27",
+    "theme": "dark"
+  },
+  "categories": [
+    "Themes"
+  ],
+  "keywords": [
+    "theme",
+    "dark",
+    "blue",
+    "deep blue",
+    "horizon",
+    "icons",
+    "file icons",
+    "horizon-icons"
+  ],
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "main": "extension.js",
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "contributes": {
+    "themes": [
+      {
+        "id": "Deep Blue",
+        "label": "Horizon Deep Blue",
+        "description": "Horizon deep blue dark theme",
+        "uiTheme": "vs-dark",
+        "path": "./themes/dark_blue_dark.json"
+      },
+      {
+        "id": "Modern Light",
+        "label": "Horizon Modern Light",
+        "description": "Horizon modern light theme",
+        "uiTheme": "vs",
+        "path": "./themes/modern_light.json"
+      },
+      {
+        "id": "DarkPlus",
+        "label": "Horizon Dark Plus",
+        "description": "Horizon dark plus theme",
+        "uiTheme": "vs-dark",
+        "path": "./themes/dark_plus.json"
+      }
+    ],
+    "iconThemes": [
+      {
+        "id": "Icons",
+        "label": "Horizon Icons",
+        "path": "./fileicons/icon-theme.json"
+      }
+    ],
+    "configuration": {
+      "title": "Horizon Theme",
+      "properties": {
+        "horizonTheme.customIconAssociations": {
+          "type": "object",
+          "description": "Define custom icon associations. See README for more information.",
+          "properties": {
+            "icon": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/microsoft/vscode.git"
+  }
+}
