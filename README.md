@@ -1,33 +1,74 @@
-# Horizon Theme
+# Horizon Themes
 
-> A deep, immersive dark theme crafted for focus and clarity —
-> paired with Horizon Icons to bring harmony to your workspace.
-
----
-
-## Color Themes
-
-Horizon ships with **three carefully crafted themes**:
-
-### 🌑 Horizon Dark
-
-A rich, neutral dark theme — easy on the eyes during long coding sessions.
-
-### 🌊 Horizon Deep Blue
-
-The signature theme. Deep navy backgrounds with cool blue accents that feel
-like coding at the bottom of the ocean.
-
-### ☀️ Horizon Light
-
-A clean, minimal light theme for those who prefer a bright workspace.
+> A deep, immersive theme collection crafted for focus and clarity —  
+> paired with **Horizon Icons** and **Horizon Tags** to bring harmony and color to your workspace.
 
 ---
 
-## File Icons
+![Horizon Banner](https://raw.githubusercontent.com/Abdelrahman968/horizon-theme/refs/heads/main/assets/banner.png)
 
-Powered by **Horizon Icons** — 700+ simple, elegant icons covering every language,
-framework, and tool you work with daily.
+---
+
+## 🎨 Color Themes
+
+Horizon ships with **two editions**: **Core** for minimalists and **Gamers** for HoYoverse fans.
+
+---
+
+### 🔵 Core Edition
+
+| Theme                             | Style |
+| --------------------------------- | ----- |
+| Horizon Themes Core: Deep Blue    | Dark  |
+| Horizon Themes Core: Dark Plus    | Dark  |
+| Horizon Themes Core: Modern Light | Light |
+
+---
+
+### 🎮 Gamers Edition — HoYoverse
+
+Each character theme comes in **Light** and **Dark** variants. Select characters also include a **High Contrast** version.
+
+#### Genshin Impact
+
+| Character         | Light | Dark | High Contrast |
+| ----------------- | ----- | ---- | ------------- |
+| Citlali           | ✅    | ✅   | —             |
+| Layla             | ✅    | ✅   | —             |
+| Furina            | ✅    | ✅   | —             |
+| Ganyu             | ✅    | ✅   | ✅            |
+| Yumemizuki Mizuki | ✅    | ✅   | ✅            |
+| Sandrone          | ✅    | ✅   | —             |
+| Scaramouche       | ✅    | ✅   | —             |
+| Wanderer          | ✅    | ✅   | —             |
+| Columbina         | ✅    | ✅   | —             |
+| Ill Dottore       | ✅    | ✅   | —             |
+| Yae Miko          | ✅    | ✅   | —             |
+| Kamisato Ayaka    | ✅    | ✅   | —             |
+| Chiori            | ✅    | ✅   | —             |
+| Skirk             | ✅    | ✅   | —             |
+
+#### Honkai: Star Rail
+
+| Character  | Light | Dark |
+| ---------- | ----- | ---- |
+| Robin      | ✅    | ✅   |
+| Kafka      | ✅    | ✅   |
+| Firefly    | ✅    | ✅   |
+| Aventurine | ✅    | ✅   |
+| Dan Heng   | ✅    | ✅   |
+| Ruan Mei   | ✅    | ✅   |
+| Cyrene     | ✅    | ✅   |
+| March 7th  | ✅    | ✅   |
+
+---
+
+## 🗂️ File & Folder Icons
+
+![Horizon Files Icons](https://raw.githubusercontent.com/Abdelrahman968/horizon-theme/refs/heads/main/assets/files.png)  
+![Horizon Folder Icons](https://raw.githubusercontent.com/Abdelrahman968/horizon-theme/refs/heads/main/assets/folders.png)
+
+Powered by **Horizon Icons** — 900+ simple, elegant icons covering every language, framework, and tool you work with daily.
 
 **Supported file types include:**
 
@@ -45,24 +86,104 @@ framework, and tool you work with daily.
 
 ---
 
-## Installation
+## 🏷️ Horizon Tags
+
+Intelligently colors all tag pairs in your files with smart denylist handling, supporting custom tags, meta tags, and self-closing tags.
+
+### Example - Text color mode
+
+![Example](https://raw.githubusercontent.com/Abdelrahman968/horizon-theme/refs/heads/main/assets/example_color.png)
+
+### Example - Background color mode
+
+![Example](https://raw.githubusercontent.com/Abdelrahman968/horizon-theme/refs/heads/main/assets/example_bgcolor.png)
+
+### Example - Border color mode
+
+![Example](https://raw.githubusercontent.com/Abdelrahman968/horizon-theme/refs/heads/main/assets/example_border.png)
+
+---
+
+## 📦 Installation
 
 1. Open **VS Code**
 2. Press `Ctrl+Shift+X` to open Extensions
-3. Search for **Horizon Theme**
+3. Search for **Horizon Themes**
 4. Click **Install**
 
 ### Activate Color Theme
 
-`Ctrl+K` `Ctrl+T` → Select **Horizon Deep Blue**, **Horizon Dark**, or **Horizon Light**
+`Ctrl+K` `Ctrl+T` → Select any theme from the list above
 
 ### Activate File Icons
 
 `Ctrl+Shift+P` → `Preferences: File Icon Theme` → Select **Horizon Icons**
 
+### Activate Tag Coloring
+
+Horizon Tags works automatically for supported languages.
+
 ---
 
-## Custom Icon Associations
+## ⚙️ Configuration
+
+### Tag colors - `horizonTags.colors`
+
+A list of color strings for tag highlighting — can include alpha values and any number of colors.
+
+```json
+{
+  "horizonTags.colors": ["#d26", "red", "rgba(100, 200, 100, 0.5)"]
+}
+```
+
+### Coloring style - `horizonTags.highlightType`
+
+Determines the highlighting style for tags:
+
+- `color` → text color
+- `background-color` → background
+- `border` → border color
+
+```json
+{
+  "horizonTags.highlightType": "color"
+}
+```
+
+### Switch for unsupported languages - `horizonTags.allowEverywhere`
+
+If true, tags will be colored in all file types. Default is false.
+
+```json
+{
+  "horizonTags.allowEverywhere": true
+}
+```
+
+### Supported languages - `horizonTags.supportedLanguages`
+
+A list of language IDs affected by this extension.
+
+```json
+{
+  "horizonTags.supportedLanguages": ["html", "xml", "vue"]
+}
+```
+
+### Excluded tags - `horizonTags.denylistTags`
+
+Tags that won't be colored.
+
+```json
+{
+  "horizonTags.denylistTags": ["html", "head", "body"]
+}
+```
+
+---
+
+## 🎨 Custom Icon Associations
 
 You can customize icon associations in your VS Code `settings.json`:
 
@@ -73,17 +194,9 @@ You can customize icon associations in your VS Code `settings.json`:
 }
 ```
 
-**Format guide:**
-
-- Folder names: `/[name]`
-- File extensions: `*.[name]`
-- File names: `[name]`
-
-Reload VS Code (`Developer: Reload Window`) to apply changes.
-
 ---
 
-## Author
+## 👤 Author
 
 Made with ❤️ by **Abdelrahman Ayman**
 
@@ -93,20 +206,14 @@ Made with ❤️ by **Abdelrahman Ayman**
 
 ---
 
-## Credits
+## 🙏 Credits
 
 - File icons inspired by PKief's [Material Icon Theme] and Google's [Material Symbols]
 - Icon set based on [Mizu Icons] by cdfzo
-- Built with passion for the developer community
-
-If there is a logo anyone wishes taken down, please open an issue.
-
-[Material Icon Theme]: https://github.com/material-extensions/vscode-material-icon-theme
-[Material Symbols]: https://github.com/google/material-design-icons
-[Mizu Icons]: https://marketplace.visualstudio.com/items?itemName=cdfzo.mizu
+- Horizon Tags inspired by [Rainbow Tags](https://gitlab.com/voldemortensen/rainbow-tags)
 
 ---
 
-## License
+## 📄 License
 
 MIT © Abdelrahman Ayman

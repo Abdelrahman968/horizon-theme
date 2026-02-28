@@ -1,11 +1,11 @@
 {
   "name": "horizon-theme",
-  "displayName": "Horizon Theme",
-  "description": "A deep immersive dark theme with Horizon Icons — crafted for focus and clarity",
-  "version": "1.0.0",
-  "publisher": "Horizon",
+  "displayName": "Horizon Ultimate Themes",
+  "description": "A collection of Horizon Themes with Core and Gamers editions, all paired with Horizon Icons and HorizonTags.",
+  "version": "2.0.0",
+  "publisher": "horizon-core",
   "license": "MIT",
-  "icon": "assets/icon.png",
+  "icon": "icon.png",
   "galleryBanner": {
     "color": "#181D27",
     "theme": "dark"
@@ -17,67 +17,461 @@
     "theme",
     "dark",
     "blue",
-    "deep blue",
     "horizon",
     "icons",
     "file icons",
-    "horizon-icons"
+    "rainbow tags",
+    "html",
+    "genshin impact",
+    "fatui",
+    "hsr",
+    "honkai star rail",
+    "hoyoverse",
+    "citlali",
+    "layla",
+    "furina",
+    "ganyu",
+    "yumemizuki",
+    "mizuki",
+    "sandrone",
+    "scaramouche",
+    "dan heng",
+    "ruan mei",
+    "cyrene",
+    "kafka",
+    "firefly",
+    "aventurine",
+    "robin",
+    "columbina",
+    "dottore",
+    "yae miko",
+    "march 7th"
   ],
   "engines": {
     "vscode": "^1.90.0"
   },
   "main": "extension.js",
   "activationEvents": [
-    "onStartupFinished"
+    "onStartupFinished",
+    "onCommand:extension.horizonTags"
   ],
   "contributes": {
     "themes": [
       {
-        "id": "Deep Blue",
-        "label": "Horizon Deep Blue",
-        "description": "Horizon deep blue dark theme",
+        "id": "horizon-core.deep-blue",
+        "label": "Horizon Themes Core: Deep Blue",
         "uiTheme": "vs-dark",
-        "path": "./themes/dark_blue_dark.json"
+        "path": "./themes/core/dark_blue_dark.json"
       },
       {
-        "id": "Modern Light",
-        "label": "Horizon Modern Light",
-        "description": "Horizon modern light theme",
+        "id": "horizon-core.dark-plus",
+        "label": "Horizon Themes Core: Dark Plus",
+        "uiTheme": "vs-dark",
+        "path": "./themes/core/dark_plus.json"
+      },
+      {
+        "id": "horizon-core.modern-light",
+        "label": "Horizon Themes Core: Modern Light",
         "uiTheme": "vs",
-        "path": "./themes/modern_light.json"
+        "path": "./themes/core/modern_light.json"
       },
       {
-        "id": "DarkPlus",
-        "label": "Horizon Dark Plus",
-        "description": "Horizon dark plus theme",
+        "id": "horizon-themes-robin-light",
+        "label": "Honkai: Star Rail - Robin",
+        "uiTheme": "vs",
+        "path": "./themes/hoyoverse/robin-color-theme.json"
+      },
+      {
+        "id": "horizon-themes-robin-dark",
+        "label": "Honkai: Star Rail - Robin (Dark)",
         "uiTheme": "vs-dark",
-        "path": "./themes/dark_plus.json"
+        "path": "./themes/hoyoverse/robin-dark-color-theme.json"
+      },
+      {
+        "id": "horizon-themes-columbina-light",
+        "label": "Genshin Impact - Columbina",
+        "uiTheme": "vs",
+        "path": "./themes/hoyoverse/columbina-color-theme.json"
+      },
+      {
+        "id": "horizon-themes-columbina-dark",
+        "label": "Genshin Impact - Columbina (Dark)",
+        "uiTheme": "vs-dark",
+        "path": "./themes/hoyoverse/columbina-dark-color-theme.json"
+      },
+      {
+        "id": "horizon-themes-dottore-light",
+        "label": "Genshin Impact - Ill Dottore",
+        "uiTheme": "vs",
+        "path": "./themes/hoyoverse/dottore-color-theme.json"
+      },
+      {
+        "id": "horizon-themes-dottore-dark",
+        "label": "Genshin Impact - Ill Dottore (Dark)",
+        "uiTheme": "vs-dark",
+        "path": "./themes/hoyoverse/dottore-dark-color-theme.json"
+      },
+      {
+        "id": "horizon-themes-yaemiko-light",
+        "label": "Genshin Impact - Yae Miko",
+        "uiTheme": "vs",
+        "path": "./themes/hoyoverse/yaemiko-color-theme.json"
+      },
+      {
+        "id": "horizon-themes-yaemiko-dark",
+        "label": "Genshin Impact - Yae Miko (Dark)",
+        "uiTheme": "vs-dark",
+        "path": "./themes/hoyoverse/yaemiko-dark-color-theme.json"
+      },
+      {
+        "id": "horizon-themes-kafka-light",
+        "label": "Honkai: Star Rail - Kafka",
+        "uiTheme": "vs",
+        "path": "./themes/hoyoverse/kafka-color-theme.json"
+      },
+      {
+        "id": "horizon-themes-kafka-dark",
+        "label": "Honkai: Star Rail - Kafka (Dark)",
+        "uiTheme": "vs-dark",
+        "path": "./themes/hoyoverse/kafka-dark-color-theme.json"
+      },
+      {
+        "id": "horizon-themes-firefly-light",
+        "label": "Honkai: Star Rail - Firefly",
+        "uiTheme": "vs",
+        "path": "./themes/hoyoverse/firefly-color-theme.json"
+      },
+      {
+        "id": "horizon-themes-firefly-dark",
+        "label": "Honkai: Star Rail - Firefly (Dark)",
+        "uiTheme": "vs-dark",
+        "path": "./themes/hoyoverse/firefly-dark-color-theme.json"
+      },
+      {
+        "id": "horizon-themes-aventurine-light",
+        "label": "Honkai: Star Rail - Aventurine",
+        "uiTheme": "vs",
+        "path": "./themes/hoyoverse/aventurine-color-theme.json"
+      },
+      {
+        "id": "horizon-themes-aventurine-dark",
+        "label": "Honkai: Star Rail - Aventurine (Dark)",
+        "uiTheme": "vs-dark",
+        "path": "./themes/hoyoverse/aventurine-dark-color-theme.json"
+      },
+      {
+        "id": "horizon-themes-danheng-light",
+        "label": "Honkai: Star Rail - Dan Heng",
+        "uiTheme": "vs",
+        "path": "./themes/hoyoverse/danheng-color-theme.json"
+      },
+      {
+        "id": "horizon-themes-danheng-dark",
+        "label": "Honkai: Star Rail - Dan Heng (Dark)",
+        "uiTheme": "vs-dark",
+        "path": "./themes/hoyoverse/danheng-dark-color-theme.json"
+      },
+      {
+        "id": "horizon-themes-scaramouche-light",
+        "label": "Genshin Impact - Scaramouche",
+        "uiTheme": "vs",
+        "path": "./themes/hoyoverse/scaramouche-color-theme.json"
+      },
+      {
+        "id": "horizon-themes-scaramouche-dark",
+        "label": "Genshin Impact - Scaramouche (Dark)",
+        "uiTheme": "vs-dark",
+        "path": "./themes/hoyoverse/scaramouche-dark-color-theme.json"
+      },
+      {
+        "id": "horizon-themes-ruanmei-light",
+        "label": "Honkai: Star Rail - Ruan Mei",
+        "uiTheme": "vs",
+        "path": "./themes/hoyoverse/ruanmei-color-theme.json"
+      },
+      {
+        "id": "horizon-themes-ruanmei-dark",
+        "label": "Honkai: Star Rail - Ruan Mei (Dark)",
+        "uiTheme": "vs-dark",
+        "path": "./themes/hoyoverse/ruanmei-dark-color-theme.json"
+      },
+      {
+        "id": "horizon-themes-cyrene-light",
+        "label": "Honkai: Star Rail - Cyrene",
+        "uiTheme": "vs",
+        "path": "./themes/hoyoverse/cyrene-color-theme.json"
+      },
+      {
+        "id": "horizon-themes-cyrene-dark",
+        "label": "Honkai: Star Rail - Cyrene (Dark)",
+        "uiTheme": "vs-dark",
+        "path": "./themes/hoyoverse/cyrene-dark-color-theme.json"
+      },
+      {
+        "id": "horizon-themes-sandrone-light",
+        "label": "Genshin Impact - Sandrone",
+        "uiTheme": "vs",
+        "path": "./themes/hoyoverse/sandrone-color-theme.json"
+      },
+      {
+        "id": "horizon-themes-sandrone-dark",
+        "label": "Genshin Impact - Sandrone (Dark)",
+        "uiTheme": "vs-dark",
+        "path": "./themes/hoyoverse/sandrone-dark-color-theme.json"
+      },
+      {
+        "id": "horizon-themes-mizuki-light",
+        "label": "Genshin Impact - Yumemizuki Mizuki",
+        "uiTheme": "vs",
+        "path": "./themes/hoyoverse/mizuki-color-theme.json"
+      },
+      {
+        "id": "horizon-themes-mizuki-dark",
+        "label": "Genshin Impact - Yumemizuki Mizuki (Dark)",
+        "uiTheme": "vs-dark",
+        "path": "./themes/hoyoverse/mizuki-dark-color-theme.json"
+      },
+      {
+        "id": "horizon-themes-mizuki-hc",
+        "label": "Genshin Impact - Yumemizuki Mizuki (High Contrast)",
+        "uiTheme": "hc-black",
+        "path": "./themes/hoyoverse/mizuki-highcontrast-color-theme.json"
+      },
+      {
+        "id": "horizon-themes-ganyu-light",
+        "label": "Genshin Impact - Ganyu",
+        "uiTheme": "vs",
+        "path": "./themes/hoyoverse/ganyu-color-theme.json"
+      },
+      {
+        "id": "horizon-themes-ganyu-dark",
+        "label": "Genshin Impact - Ganyu (Dark)",
+        "uiTheme": "vs-dark",
+        "path": "./themes/hoyoverse/ganyu-dark-color-theme.json"
+      },
+      {
+        "id": "horizon-themes-ganyu-hc",
+        "label": "Genshin Impact - Ganyu (High Contrast)",
+        "uiTheme": "hc-black",
+        "path": "./themes/hoyoverse/ganyu-highcontrast-color-theme.json"
+      },
+      {
+        "id": "horizon-themes-furina-light",
+        "label": "Genshin Impact - Furina",
+        "uiTheme": "vs",
+        "path": "./themes/hoyoverse/furina-color-theme.json"
+      },
+      {
+        "id": "horizon-themes-furina-dark",
+        "label": "Genshin Impact - Furina (Dark)",
+        "uiTheme": "vs-dark",
+        "path": "./themes/hoyoverse/furina-dark-color-theme.json"
+      },
+      {
+        "id": "horizon-themes-citlali-light",
+        "label": "Genshin Impact - Citlali",
+        "uiTheme": "vs",
+        "path": "./themes/hoyoverse/citlali-color-theme.json"
+      },
+      {
+        "id": "horizon-themes-citlali-dark",
+        "label": "Genshin Impact - Citlali (Dark)",
+        "uiTheme": "vs-dark",
+        "path": "./themes/hoyoverse/citlali-dark-color-theme.json"
+      },
+      {
+        "id": "horizon-themes-layla-light",
+        "label": "Genshin Impact - Layla",
+        "uiTheme": "vs",
+        "path": "./themes/hoyoverse/layla-color-theme.json"
+      },
+      {
+        "id": "horizon-themes-layla-dark",
+        "label": "Genshin Impact - Layla (Dark)",
+        "uiTheme": "vs-dark",
+        "path": "./themes/hoyoverse/layla-dark-color-theme.json"
+      },
+      {
+        "id": "horizon-themes-march7th-light",
+        "label": "Honkai: Star Rail - March 7th",
+        "uiTheme": "vs",
+        "path": "./themes/hoyoverse/march7th-color-theme.json"
+      },
+      {
+        "id": "horizon-themes-march7th-dark",
+        "label": "Honkai: Star Rail - March 7th (Dark)",
+        "uiTheme": "vs-dark",
+        "path": "./themes/hoyoverse/march7th-dark-color-theme.json"
+      },
+      {
+        "id": "horizon-themes-chiori-light",
+        "label": "Genshin Impact - Chiori",
+        "uiTheme": "vs",
+        "path": "./themes/hoyoverse/chiori-color-theme.json"
+      },
+      {
+        "id": "horizon-themes-chiori-dark",
+        "label": "Genshin Impact - Chiori (Dark)",
+        "uiTheme": "vs-dark",
+        "path": "./themes/hoyoverse/chiori-dark-color-theme.json"
+      },
+      {
+        "id": "horizon-themes-ayaka-light",
+        "label": "Genshin Impact - Kamisato Ayaka",
+        "uiTheme": "vs",
+        "path": "./themes/hoyoverse/ayaka-color-theme.json"
+      },
+      {
+        "id": "horizon-themes-ayaka-dark",
+        "label": "Genshin Impact - Kamisato Ayaka (Dark)",
+        "uiTheme": "vs-dark",
+        "path": "./themes/hoyoverse/ayaka-dark-color-theme.json"
+      },
+      {
+        "id": "horizon-themes-skirk-light",
+        "label": "Genshin Impact - Skirk",
+        "uiTheme": "vs",
+        "path": "./themes/hoyoverse/skirk-color-theme.json"
+      },
+      {
+        "id": "horizon-themes-skirk-dark",
+        "label": "Genshin Impact - Skirk (Dark)",
+        "uiTheme": "vs-dark",
+        "path": "./themes/hoyoverse/skirk-dark-color-theme.json"
+      },
+      {
+        "id": "horizon-themes-wanderer-light",
+        "label": "Genshin Impact - Wanderer",
+        "uiTheme": "vs",
+        "path": "./themes/hoyoverse/wanderer-color-theme.json"
+      },
+      {
+        "id": "horizon-themes-wanderer-dark",
+        "label": "Genshin Impact - Wanderer (Dark)",
+        "uiTheme": "vs-dark",
+        "path": "./themes/hoyoverse/wanderer-dark-color-theme.json"
       }
     ],
     "iconThemes": [
       {
-        "id": "Icons",
+        "id": "Horizon Icons",
         "label": "Horizon Icons",
         "path": "./fileicons/icon-theme.json"
       }
     ],
-    "configuration": {
-      "title": "Horizon Theme",
-      "properties": {
-        "horizonTheme.customIconAssociations": {
-          "type": "object",
-          "description": "Define custom icon associations. See README for more information.",
-          "properties": {
-            "icon": {
-              "type": "array",
-              "items": {
-                "type": "string"
+    "commands": [
+      {
+        "command": "extension.horizonTags",
+        "title": "Horizon Tags"
+      }
+    ],
+    "configuration": [
+      {
+        "title": "Horizon Theme",
+        "properties": {
+          "horizonTheme.customIconAssociations": {
+            "type": "object",
+            "description": "Define custom icon associations. See README for more information.",
+            "properties": {
+              "icon": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
               }
             }
           }
         }
+      },
+      {
+        "title": "Horizon Tags",
+        "properties": {
+          "horizonTags.colors": {
+            "type": "array",
+            "default": [
+              "#e6b422",
+              "#c70067",
+              "#00a960",
+              "#fc7482"
+            ],
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1,
+            "description": "An array of HEX color codes for the tag highlighting.",
+            "scope": "window"
+          },
+          "horizonTags.hightlightType": {
+            "type": "string",
+            "default": "color",
+            "enum": [
+              "color",
+              "background-color",
+              "border"
+            ],
+            "description": "Highlighting graphical style of choice. Default \"color\"",
+            "scope": "window"
+          },
+          "horizonTags.allowEverywhere": {
+            "type": "boolean",
+            "default": false,
+            "description": "If true, highlights tags in all languages, not just XML-typed ones. May cause false highlights in TypeScript generics, etc.",
+            "scope": "window"
+          },
+          "horizonTags.supportedLanguages": {
+            "type": "array",
+            "default": [
+              "html",
+              "php",
+              "twig",
+              "blade",
+              "smarty",
+              "xml",
+              "vue"
+            ],
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1,
+            "uniqueItems": true,
+            "description": "Supported language IDs.",
+            "scope": "window"
+          },
+          "horizonTags.denylistTags": {
+            "type": "array",
+            "default": [
+              "!DOCTYPE",
+              "html",
+              "head",
+              "meta",
+              "body",
+              "title",
+              "link",
+              "script",
+              "base",
+              "style",
+              "area",
+              "br",
+              "col",
+              "embed",
+              "hr",
+              "img",
+              "input",
+              "param",
+              "source",
+              "track",
+              "wbr"
+            ],
+            "items": {
+              "type": "string"
+            },
+            "uniqueItems": true,
+            "description": "Tags excluded from highlighting.",
+            "scope": "window"
+          }
+        }
       }
-    }
+    ]
   },
   "repository": {
     "type": "git",
