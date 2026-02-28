@@ -4,6 +4,10 @@ All notable changes to **Horizon Themes** will be documented in this file.
 
 ---
 
+## [2.0.1] — 2026-02-26
+
+- Fix some issus
+
 ## [2.0.0] — 2026-02-26
 
 ### ✨ New Features
