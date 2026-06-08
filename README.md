@@ -9,6 +9,62 @@
 
 ---
 
+## [3.7.0]
+
+### ✨ New Icons
+
+- Add folder icons: debian, gemini, yaml, zed
+- Add file icons: capistrano, gemini, istanbul, jsonConfig, nixLock, rustDist, rustError, rustLint
+- Rename file icons: yml => yaml, ymlApp => yamlApp, ymlCi => yamlCi, ymlConfig => yamlConfig, ymlCron => -yamlCron, ymlDatabase => yamlDatabase, ymlExample => yamlExample, ymlFunding => yamlFunding, ymlPublish => yamlPublish, ymlStorage => yamlStorage, ymlTemporary => yamlTemporary
+
+- Make extension compatible with VS Code for the Web@beta
+- Add file icons: elixirApp, elixirConfig, elixirEnv, elixirLint, phoenix
+
+- Add folder icons: claude, cursor, debian, tailwind, vitepress
+- Add file icons: claude, cursor, gitCliff, gitCliffIgnore, kdl
+- Rename folder icon: cursor => pointer
+- Rename file icon: cursor => pointer
+
+- Fix file icon: ejs files
+
+## [3.6.3]
+
+### 🔧 Fixes & Improvements
+
+#### 🎨 Horizon Deep Blue — Color Refinements
+
+- Unified `statusBar.background` with the editor background (`#181D27`) for a more seamless look
+- Updated `statusBar.foreground` to full white (`#ffffff`) for better readability
+- Fixed `statusBar.noFolderBackground` and `statusBar.debuggingBackground` to match the main background instead of transparent/accent colors
+- Aligned `titleBar`, `tab`, `editorGroupHeader`, `editorHoverWidget`, and `editorSuggestWidget` colors with the sidebar panel for visual consistency
+- Corrected `tab.activeBorder` to use the soft blue-white accent (`#AABCF2`) matching hover widget highlights
+- Synced `sideBar.border` with the activity bar border color (`#232A35`)
+
+#### 🚸 Add New Icon
+
+- New EJS Icon
+
+## [3.6.2]
+
+### 🔧 Fixes & Improvements
+
+## Fixed an issue
+
+- where the sidebar settings panel was not displaying correctly
+- where the theme scheduler was not working correctly
+- where the backup & restore feature was not working correctly
+- where the random theme feature was not working correctly
+- where the HorizonTags feature was not working correctly
+- where the Horizon Product Icons feature was not working correctly
+- where the live theme preview feature was not working correctly
+- where the sidebar settings panel was not working correctly
+- where the theme scheduler was not working correctly
+- where the backup & restore feature was not working correctly
+- where the random theme feature was not working correctly
+- where the HorizonTags feature was not working correctly
+- where the Horizon Product Icons feature was not working correctly
+- where the live theme preview feature was not working correctly
+
 ## ✨ What's New in v3.6.1
 
 - 🎨 **Built-in Horizon Product Icons** — 36 custom SVG icons replacing VS Code's toolbar, sidebar, terminal, git & notification icons. No extra extension needed.

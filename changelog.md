@@ -4,6 +4,24 @@ All notable changes to **Horizon Themes** will be documented in this file.
 
 ---
 
+## [3.7.0]
+
+### ✨ New Icons
+
+- Add folder icons: debian, gemini, yaml, zed
+- Add file icons: capistrano, gemini, istanbul, jsonConfig, nixLock, rustDist, rustError, rustLint
+- Rename file icons: yml => yaml, ymlApp => yamlApp, ymlCi => yamlCi, ymlConfig => yamlConfig, ymlCron => -yamlCron, ymlDatabase => yamlDatabase, ymlExample => yamlExample, ymlFunding => yamlFunding, ymlPublish => yamlPublish, ymlStorage => yamlStorage, ymlTemporary => yamlTemporary
+
+- Make extension compatible with VS Code for the Web@beta
+- Add file icons: elixirApp, elixirConfig, elixirEnv, elixirLint, phoenix
+
+- Add folder icons: claude, cursor, debian, tailwind, vitepress
+- Add file icons: claude, cursor, gitCliff, gitCliffIgnore, kdl
+- Rename folder icon: cursor => pointer
+- Rename file icon: cursor => pointer
+
+- Fix file icon: ejs files
+
 ## [3.6.3]
 
 ### 🔧 Fixes & Improvements
