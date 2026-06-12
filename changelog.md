@@ -4,6 +4,10 @@ All notable changes to **Horizon Themes** will be documented in this file.
 
 ---
 
+## [3.8.0]
+
+- Make extension compatible with VS Code for the Web
+
 ## [3.7.0]
 
 ### ✨ New Icons

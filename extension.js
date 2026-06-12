@@ -5,21 +5,21 @@ var {
   } = Object,
   L = Object.prototype.hasOwnProperty;
 var h = new WeakMap(),
-  M = f => {
+  M = (f) => {
     var T = h.get(f),
       r;
     if (T) return T;
     if (
-      ((T = $({}, '__esModule', { value: !0 })),
-      (f && typeof f === 'object') || typeof f === 'function')
+      ((T = $({}, "__esModule", { value: !0 })),
+      (f && typeof f === "object") || typeof f === "function")
     )
       J(f).map(
-        o =>
+        (o) =>
           !L.call(T, o) &&
           $(T, o, {
             get: () => f[o],
             enumerable: !(r = K(f, o)) || r.enumerable,
-          })
+          }),
       );
     return (h.set(f, T), T);
   };
@@ -29,47 +29,49 @@ var Q = (f, T) => {
       get: T[r],
       enumerable: !0,
       configurable: !0,
-      set: o => (T[r] = () => o),
+      set: (o) => (T[r] = () => o),
     });
 };
 var k = {};
 Q(k, { deactivate: () => deactivate, activate: () => activate });
 module.exports = M(k);
 
-var fs = require('node:fs'),
-  path = require('node:path'),
-  process = require('node:process'),
-  vscode = require('vscode');
+var vscode = require("vscode");
+
+// Running in VS Code for the Web (vscode.dev / github.dev) vs desktop.
+const isWeb = vscode.env.uiKind === vscode.UIKind.Web;
+const td = new TextDecoder();
+const te = new TextEncoder();
 
 // ══════════════════════════════════════════════
 // CONSTANTS
 // ══════════════════════════════════════════════
-const EXTENSION_VERSION = '3.6.1';
-const EXTENSION_ID = 'horizon-core.horizon-theme';
+const EXTENSION_VERSION = "3.6.1";
+const EXTENSION_ID = "horizon-core.horizon-theme";
 
 // ══════════════════════════════════════════════
 // HORIZON ICONS ENGINE
 // ══════════════════════════════════════════════
 var W = {
-  '/': [
-    ['folderNames', 'folderNamesExpanded'],
-    ['Folder', 'FolderX'],
+  "/": [
+    ["folderNames", "folderNamesExpanded"],
+    ["Folder", "FolderX"],
   ],
-  '*.': [['fileExtensions']],
-  '': [['fileNames']],
+  "*.": [["fileExtensions"]],
+  "": [["fileNames"]],
 };
 var O = (f, T, r, o) => {
   for (let [E, I] of Object.entries(T)) {
     if (I?.constructor !== Array)
       throw Error(`The icon association for '${E}' is not an array.`);
     for (let N of I) {
-      let [, X = '', z] = /^(\/|\*\.)?(.+)/.exec(N),
-        [A, B = ['']] = W[X];
+      let [, X = "", z] = /^(\/|\*\.)?(.+)/.exec(N),
+        [A, B = [""]] = W[X];
       A.forEach((G, D) => {
         let b = o(r(f, E + B[D]));
         if (b === o(-1))
           throw (
-            (G = G === 'folderNames' ? 'folder' : 'file'),
+            (G = G === "folderNames" ? "folder" : "file"),
             Error(`The ${G} icon '${E}' doesn't exist.`)
           );
         for (let H of y(z)) f[G][H] = b;
@@ -77,71 +79,91 @@ var O = (f, T, r, o) => {
     }
   }
 };
-var y = f => {
+var y = (f) => {
   let T = [f];
-  f.match(/\(.+?\)/g)?.forEach(r => {
+  f.match(/\(.+?\)/g)?.forEach((r) => {
     T = r
       .slice(1, -1)
-      .split('|')
-      .flatMap(o => T.map(E => E.replace(r, o)));
+      .split("|")
+      .flatMap((o) => T.map((E) => E.replace(r, o)));
   });
-  return T.flatMap(r => (r.includes('?') ? U(r) : r));
+  return T.flatMap((r) => (r.includes("?") ? U(r) : r));
 };
-var U = f => {
+var U = (f) => {
   let T = [f];
   for (let r of f.match(/.\?/g))
-    T = T.flatMap(o => [o.replace(r, ''), o.replace(r[1], '')]);
+    T = T.flatMap((o) => [o.replace(r, ""), o.replace(r[1], "")]);
   return T;
 };
-var applyHorizonIcons = f => {
+var applyHorizonIcons = async (f) => {
+  if (isWeb) {
+    // Writing to the extension's installation files isn't possible in
+    // VS Code for the Web, so custom icon associations are unsupported there.
+    vscode.window.showWarningMessage(
+      "✦ Horizon: Custom icon associations require VS Code Desktop and are not available in VS Code for the Web.",
+    );
+    return;
+  }
   let T = JSON.stringify(f),
-    r = vscode.extensions.getExtension(EXTENSION_ID).extensionPath;
-  process.chdir(r);
-  if (fs.existsSync('custom.json')) {
-    if (T === fs.readFileSync('custom.json', 'utf8')) return;
-  } else fs.copyFileSync('icon-theme.json', 'icon-theme.json.bk');
-  let o = JSON.parse(fs.readFileSync('icon-theme.json.bk', 'utf8')),
-    E = Object.values(o.iconDefinitions).map(I => I.iconPath);
+    base = vscode.extensions.getExtension(EXTENSION_ID).extensionUri,
+    customUri = vscode.Uri.joinPath(base, "custom.json"),
+    iconUri = vscode.Uri.joinPath(base, "icon-theme.json"),
+    bkUri = vscode.Uri.joinPath(base, "icon-theme.json.bk");
+
+  let existing = null;
+  try {
+    existing = td.decode(await vscode.workspace.fs.readFile(customUri));
+  } catch {
+    /* custom.json doesn't exist yet */
+  }
+  if (existing !== null) {
+    if (T === existing) return;
+  } else {
+    const orig = await vscode.workspace.fs.readFile(iconUri);
+    await vscode.workspace.fs.writeFile(bkUri, orig);
+  }
+  let o = JSON.parse(td.decode(await vscode.workspace.fs.readFile(bkUri))),
+    E = Object.values(o.iconDefinitions).map((I) => I.iconPath);
   O(
     o,
     f,
     (I, N) => E.indexOf(`i/${N}.svg`),
-    I => I.toString()
+    (I) => I.toString(),
   );
-  fs.writeFileSync('custom.json', JSON.stringify(f));
-  fs.writeFileSync('icon-theme.json', JSON.stringify(o));
+  await vscode.workspace.fs.writeFile(customUri, te.encode(JSON.stringify(f)));
+  await vscode.workspace.fs.writeFile(iconUri, te.encode(JSON.stringify(o)));
 };
 
 // ══════════════════════════════════════════════
 // HORIZON TAGS CONFIG
 // ══════════════════════════════════════════════
 const supportedLanguages = vscode.workspace
-  .getConfiguration('horizonTags')
-  .get('supportedLanguages');
+  .getConfiguration("horizonTags")
+  .get("supportedLanguages");
 const denylistTags = vscode.workspace
-  .getConfiguration('horizonTags')
-  .get('denylistTags');
+  .getConfiguration("horizonTags")
+  .get("denylistTags");
 const allowEverywhere = vscode.workspace
-  .getConfiguration('horizonTags')
-  .get('allowEverywhere');
+  .getConfiguration("horizonTags")
+  .get("allowEverywhere");
 const tagColorList = vscode.workspace
-  .getConfiguration('horizonTags')
-  .get('colors');
+  .getConfiguration("horizonTags")
+  .get("colors");
 const colorStyle = vscode.workspace
-  .getConfiguration('horizonTags')
-  .get('hightlightType');
+  .getConfiguration("horizonTags")
+  .get("hightlightType");
 
-const denylistTagsFormattedEndings = denylistTags.map(t => `</${t}>`);
-const denylistTagsFormattedBeginnings = denylistTags.map(t => `<${t}>`);
+const denylistTagsFormattedEndings = denylistTags.map((t) => `</${t}>`);
+const denylistTagsFormattedBeginnings = denylistTags.map((t) => `<${t}>`);
 const denylistTagsFormattedBeginningsWithWhitespaces = denylistTags.map(
-  t => `<${t} `
+  (t) => `<${t} `,
 );
 const denylistTagsFormattedBeginningsWithLinebreaks = denylistTags.map(
-  t => `<${t}`
+  (t) => `<${t}`,
 );
 
 const isolatedRightBracketsDecorationTypes =
-  vscode.window.createTextEditorDecorationType({ color: '#e2041b' });
+  vscode.window.createTextEditorDecorationType({ color: "#e2041b" });
 const tagDecoratorList = [];
 
 function isLanguageUsed(e, id) {
@@ -160,30 +182,30 @@ let schedulerInterval = null;
 function startScheduler(context) {
   if (schedulerInterval) clearInterval(schedulerInterval);
   const check = () => {
-    const c = vscode.workspace.getConfiguration('horizonTheme');
-    if (!c.get('scheduler.enabled')) return;
-    const dt = c.get('scheduler.dayTheme'),
-      nt = c.get('scheduler.nightTheme');
+    const c = vscode.workspace.getConfiguration("horizonTheme");
+    if (!c.get("scheduler.enabled")) return;
+    const dt = c.get("scheduler.dayTheme"),
+      nt = c.get("scheduler.nightTheme");
     if (!dt || !nt) return;
     const now = new Date(),
       mm = now.getHours() * 60 + now.getMinutes();
-    const [dh, dm] = (c.get('scheduler.dayStart') || '08:00')
-      .split(':')
+    const [dh, dm] = (c.get("scheduler.dayStart") || "08:00")
+      .split(":")
       .map(Number);
-    const [nh, nm] = (c.get('scheduler.nightStart') || '20:00')
-      .split(':')
+    const [nh, nm] = (c.get("scheduler.nightStart") || "20:00")
+      .split(":")
       .map(Number);
     const target = mm >= dh * 60 + dm && mm < nh * 60 + nm ? dt : nt;
     const cur = vscode.workspace
-      .getConfiguration('workbench')
-      .get('colorTheme');
+      .getConfiguration("workbench")
+      .get("colorTheme");
     if (cur !== target)
       vscode.workspace
         .getConfiguration()
         .update(
-          'workbench.colorTheme',
+          "workbench.colorTheme",
           target,
-          vscode.ConfigurationTarget.Global
+          vscode.ConfigurationTarget.Global,
         );
   };
   check();
@@ -197,23 +219,23 @@ function startScheduler(context) {
 // WHAT'S NEW
 // ══════════════════════════════════════════════
 async function checkWhatsNew(context) {
-  const last = context.globalState.get('horizonLastVersion');
+  const last = context.globalState.get("horizonLastVersion");
   if (last !== EXTENSION_VERSION) {
-    await context.globalState.update('horizonLastVersion', EXTENSION_VERSION);
+    await context.globalState.update("horizonLastVersion", EXTENSION_VERSION);
     const a = await vscode.window.showInformationMessage(
       `✦ Horizon Themes ${EXTENSION_VERSION} — Built-in Product Icons, new themes & more!`,
       "What's New",
-      'Dismiss'
+      "Dismiss",
     );
     if (a === "What's New") {
       vscode.commands.executeCommand(
-        'workbench.view.extension.horizon-sidebar'
+        "workbench.view.extension.horizon-sidebar",
       );
       setTimeout(() => {
         if (globalProvider?._view)
           globalProvider._view.webview.postMessage({
-            command: 'openTab',
-            tab: 'changelog',
+            command: "openTab",
+            tab: "changelog",
           });
       }, 800);
     }
@@ -224,37 +246,37 @@ async function checkWhatsNew(context) {
 // CONFIG HELPER
 // ══════════════════════════════════════════════
 function sendConfigToWebview(webview) {
-  const wc = vscode.workspace.getConfiguration('workbench');
-  const hc = vscode.workspace.getConfiguration('horizonTheme');
-  const ec = vscode.workspace.getConfiguration('editor');
+  const wc = vscode.workspace.getConfiguration("workbench");
+  const hc = vscode.workspace.getConfiguration("horizonTheme");
+  const ec = vscode.workspace.getConfiguration("editor");
   webview.postMessage({
-    command: 'configData',
-    theme: wc.get('colorTheme'),
-    iconTheme: wc.get('iconTheme'),
-    productIconTheme: wc.get('productIconTheme') || 'Default',
+    command: "configData",
+    theme: wc.get("colorTheme"),
+    iconTheme: wc.get("iconTheme"),
+    productIconTheme: wc.get("productIconTheme") || "Default",
     allowEverywhere: vscode.workspace
-      .getConfiguration('horizonTags')
-      .get('allowEverywhere'),
+      .getConfiguration("horizonTags")
+      .get("allowEverywhere"),
     tagStyle:
-      vscode.workspace.getConfiguration('horizonTags').get('hightlightType') ||
-      'color',
-    livePreviewEnabled: hc.get('livePreview.enabled') ?? false,
-    livePreviewDelay: hc.get('livePreview.delay') ?? 150,
-    fontSize: ec.get('fontSize') || 14,
-    lineHeight: ec.get('lineHeight') || 1.5,
-    fontLigatures: ec.get('fontLigatures') || false,
-    cursorStyle: ec.get('cursorStyle') || 'line',
-    cursorBlinking: ec.get('cursorBlinking') || 'blink',
+      vscode.workspace.getConfiguration("horizonTags").get("hightlightType") ||
+      "color",
+    livePreviewEnabled: hc.get("livePreview.enabled") ?? false,
+    livePreviewDelay: hc.get("livePreview.delay") ?? 150,
+    fontSize: ec.get("fontSize") || 14,
+    lineHeight: ec.get("lineHeight") || 1.5,
+    fontLigatures: ec.get("fontLigatures") || false,
+    cursorStyle: ec.get("cursorStyle") || "line",
+    cursorBlinking: ec.get("cursorBlinking") || "blink",
     minimap:
-      vscode.workspace.getConfiguration('editor.minimap').get('enabled') ??
+      vscode.workspace.getConfiguration("editor.minimap").get("enabled") ??
       true,
-    bracketPairs: ec.get('bracketPairColorization.enabled') ?? true,
+    bracketPairs: ec.get("bracketPairColorization.enabled") ?? true,
     scheduler: {
-      enabled: hc.get('scheduler.enabled') || false,
-      dayTheme: hc.get('scheduler.dayTheme') || 'horizon-core.modern-light',
-      nightTheme: hc.get('scheduler.nightTheme') || 'horizon-core.deep-blue',
-      dayStart: hc.get('scheduler.dayStart') || '08:00',
-      nightStart: hc.get('scheduler.nightStart') || '20:00',
+      enabled: hc.get("scheduler.enabled") || false,
+      dayTheme: hc.get("scheduler.dayTheme") || "horizon-core.modern-light",
+      nightTheme: hc.get("scheduler.nightTheme") || "horizon-core.deep-blue",
+      dayStart: hc.get("scheduler.dayStart") || "08:00",
+      nightStart: hc.get("scheduler.nightStart") || "20:00",
     },
   });
 }
@@ -264,7 +286,7 @@ function sendConfigToWebview(webview) {
 // ══════════════════════════════════════════════
 let globalProvider = null;
 class HorizonSettingsProvider {
-  static viewType = 'horizonTheme.settingsView';
+  static viewType = "horizonTheme.settingsView";
   constructor(uri, ctx) {
     this._uri = uri;
     this._ctx = ctx;
@@ -279,115 +301,115 @@ class HorizonSettingsProvider {
       localResourceRoots: [this._uri],
     };
     wv.webview.html = getWebviewContent();
-    wv.webview.onDidReceiveMessage(async m => {
+    wv.webview.onDidReceiveMessage(async (m) => {
       switch (m.command) {
-        case 'setTheme':
+        case "setTheme":
           this._previewOrig = null;
           await vscode.workspace
             .getConfiguration()
             .update(
-              'workbench.colorTheme',
+              "workbench.colorTheme",
               m.theme,
-              vscode.ConfigurationTarget.Global
+              vscode.ConfigurationTarget.Global,
             );
           break;
-        case 'previewTheme':
+        case "previewTheme":
           if (!this._previewOrig)
             this._previewOrig = vscode.workspace
-              .getConfiguration('workbench')
-              .get('colorTheme');
+              .getConfiguration("workbench")
+              .get("colorTheme");
           await vscode.workspace
             .getConfiguration()
             .update(
-              'workbench.colorTheme',
+              "workbench.colorTheme",
               m.theme,
-              vscode.ConfigurationTarget.Global
+              vscode.ConfigurationTarget.Global,
             );
           break;
-        case 'restoreTheme':
+        case "restoreTheme":
           if (this._previewOrig) {
             await vscode.workspace
               .getConfiguration()
               .update(
-                'workbench.colorTheme',
+                "workbench.colorTheme",
                 this._previewOrig,
-                vscode.ConfigurationTarget.Global
+                vscode.ConfigurationTarget.Global,
               );
             this._previewOrig = null;
           }
           break;
-        case 'setIconTheme':
+        case "setIconTheme":
           await vscode.workspace
             .getConfiguration()
             .update(
-              'workbench.iconTheme',
+              "workbench.iconTheme",
               m.theme || null,
-              vscode.ConfigurationTarget.Global
+              vscode.ConfigurationTarget.Global,
             );
           break;
-        case 'setProductIconTheme':
+        case "setProductIconTheme":
           await vscode.workspace
             .getConfiguration()
             .update(
-              'workbench.productIconTheme',
-              m.theme || 'Default',
-              vscode.ConfigurationTarget.Global
+              "workbench.productIconTheme",
+              m.theme || "Default",
+              vscode.ConfigurationTarget.Global,
             );
           break;
-        case 'updateColor': {
-          const cfg = vscode.workspace.getConfiguration('horizonTheme');
-          const cur = cfg.get('customIconAssociations') || {};
+        case "updateColor": {
+          const cfg = vscode.workspace.getConfiguration("horizonTheme");
+          const cur = cfg.get("customIconAssociations") || {};
           cur[m.key] = m.value;
           await cfg.update(
-            'customIconAssociations',
+            "customIconAssociations",
             cur,
-            vscode.ConfigurationTarget.Global
+            vscode.ConfigurationTarget.Global,
           );
           break;
         }
-        case 'updateSetting':
+        case "updateSetting":
           await vscode.workspace
             .getConfiguration()
             .update(m.key, m.value, vscode.ConfigurationTarget.Global);
           break;
-        case 'saveScheduler': {
-          const cfg = vscode.workspace.getConfiguration('horizonTheme');
+        case "saveScheduler": {
+          const cfg = vscode.workspace.getConfiguration("horizonTheme");
           await cfg.update(
-            'scheduler.enabled',
+            "scheduler.enabled",
             m.enabled,
-            vscode.ConfigurationTarget.Global
+            vscode.ConfigurationTarget.Global,
           );
           await cfg.update(
-            'scheduler.dayTheme',
+            "scheduler.dayTheme",
             m.dayTheme,
-            vscode.ConfigurationTarget.Global
+            vscode.ConfigurationTarget.Global,
           );
           await cfg.update(
-            'scheduler.nightTheme',
+            "scheduler.nightTheme",
             m.nightTheme,
-            vscode.ConfigurationTarget.Global
+            vscode.ConfigurationTarget.Global,
           );
           await cfg.update(
-            'scheduler.dayStart',
+            "scheduler.dayStart",
             m.dayStart,
-            vscode.ConfigurationTarget.Global
+            vscode.ConfigurationTarget.Global,
           );
           await cfg.update(
-            'scheduler.nightStart',
+            "scheduler.nightStart",
             m.nightStart,
-            vscode.ConfigurationTarget.Global
+            vscode.ConfigurationTarget.Global,
           );
           startScheduler(this._ctx);
-          vscode.window.showInformationMessage('✦ Horizon Scheduler saved!');
+          vscode.window.showInformationMessage("✦ Horizon Scheduler saved!");
           break;
         }
-        case 'exportSettings': {
+        case "exportSettings": {
           const uri = await vscode.window.showSaveDialog({
-            defaultUri: vscode.Uri.file('horizon-settings.json'),
-            filters: { JSON: ['json'] },
+            defaultUri: vscode.Uri.file("horizon-settings.json"),
+            filters: { JSON: ["json"] },
           });
           if (!uri) break;
-          const hc = vscode.workspace.getConfiguration('horizonTheme');
+          const hc = vscode.workspace.getConfiguration("horizonTheme");
           const data = {
             _meta: {
               version: EXTENSION_VERSION,
@@ -395,241 +417,246 @@ class HorizonSettingsProvider {
               copyright: `© 2026 Abdelrahman - MIT License`,
             },
             colorTheme: vscode.workspace
-              .getConfiguration('workbench')
-              .get('colorTheme'),
+              .getConfiguration("workbench")
+              .get("colorTheme"),
             iconTheme: vscode.workspace
-              .getConfiguration('workbench')
-              .get('iconTheme'),
+              .getConfiguration("workbench")
+              .get("iconTheme"),
             productIconTheme: vscode.workspace
-              .getConfiguration('workbench')
-              .get('productIconTheme'),
-            customAssociations: hc.get('customIconAssociations'),
+              .getConfiguration("workbench")
+              .get("productIconTheme"),
+            customAssociations: hc.get("customIconAssociations"),
             horizonTags: {
               colors: vscode.workspace
-                .getConfiguration('horizonTags')
-                .get('colors'),
+                .getConfiguration("horizonTags")
+                .get("colors"),
               hightlightType: vscode.workspace
-                .getConfiguration('horizonTags')
-                .get('hightlightType'),
+                .getConfiguration("horizonTags")
+                .get("hightlightType"),
               allowEverywhere: vscode.workspace
-                .getConfiguration('horizonTags')
-                .get('allowEverywhere'),
+                .getConfiguration("horizonTags")
+                .get("allowEverywhere"),
               supportedLanguages: vscode.workspace
-                .getConfiguration('horizonTags')
-                .get('supportedLanguages'),
+                .getConfiguration("horizonTags")
+                .get("supportedLanguages"),
             },
             scheduler: {
-              enabled: hc.get('scheduler.enabled'),
-              dayTheme: hc.get('scheduler.dayTheme'),
-              nightTheme: hc.get('scheduler.nightTheme'),
-              dayStart: hc.get('scheduler.dayStart'),
-              nightStart: hc.get('scheduler.nightStart'),
+              enabled: hc.get("scheduler.enabled"),
+              dayTheme: hc.get("scheduler.dayTheme"),
+              nightTheme: hc.get("scheduler.nightTheme"),
+              dayStart: hc.get("scheduler.dayStart"),
+              nightStart: hc.get("scheduler.nightStart"),
             },
             editorPrefs: {
-              livePreviewEnabled: hc.get('livePreview.enabled'),
-              livePreviewDelay: hc.get('livePreview.delay'),
+              livePreviewEnabled: hc.get("livePreview.enabled"),
+              livePreviewDelay: hc.get("livePreview.delay"),
               fontSize: vscode.workspace
-                .getConfiguration('editor')
-                .get('fontSize'),
+                .getConfiguration("editor")
+                .get("fontSize"),
               lineHeight: vscode.workspace
-                .getConfiguration('editor')
-                .get('lineHeight'),
+                .getConfiguration("editor")
+                .get("lineHeight"),
               fontLigatures: vscode.workspace
-                .getConfiguration('editor')
-                .get('fontLigatures'),
+                .getConfiguration("editor")
+                .get("fontLigatures"),
               cursorStyle: vscode.workspace
-                .getConfiguration('editor')
-                .get('cursorStyle'),
+                .getConfiguration("editor")
+                .get("cursorStyle"),
               cursorBlinking: vscode.workspace
-                .getConfiguration('editor')
-                .get('cursorBlinking'),
+                .getConfiguration("editor")
+                .get("cursorBlinking"),
               minimapEnabled: vscode.workspace
-                .getConfiguration('editor.minimap')
-                .get('enabled'),
+                .getConfiguration("editor.minimap")
+                .get("enabled"),
               bracketPairs: vscode.workspace
-                .getConfiguration('editor')
-                .get('bracketPairColorization.enabled'),
+                .getConfiguration("editor")
+                .get("bracketPairColorization.enabled"),
             },
           };
-          fs.writeFileSync(uri.fsPath, JSON.stringify(data, null, 2));
+          await vscode.workspace.fs.writeFile(
+            uri,
+            te.encode(JSON.stringify(data, null, 2)),
+          );
           vscode.window.showInformationMessage(
-            `✦ Settings exported to ${path.basename(uri.fsPath)}`
+            `✦ Settings exported to ${uri.path.split("/").pop()}`,
           );
           break;
         }
-        case 'importSettings': {
+        case "importSettings": {
           const uris = await vscode.window.showOpenDialog({
-            filters: { JSON: ['json'] },
+            filters: { JSON: ["json"] },
             canSelectMany: false,
           });
           if (!uris?.[0]) break;
           try {
-            const data = JSON.parse(fs.readFileSync(uris[0].fsPath, 'utf8'));
+            const data = JSON.parse(
+              td.decode(await vscode.workspace.fs.readFile(uris[0])),
+            );
             const wc = vscode.workspace.getConfiguration();
             if (data.colorTheme)
               await wc.update(
-                'workbench.colorTheme',
+                "workbench.colorTheme",
                 data.colorTheme,
-                vscode.ConfigurationTarget.Global
+                vscode.ConfigurationTarget.Global,
               );
             if (data.iconTheme)
               await wc.update(
-                'workbench.iconTheme',
+                "workbench.iconTheme",
                 data.iconTheme,
-                vscode.ConfigurationTarget.Global
+                vscode.ConfigurationTarget.Global,
               );
             if (data.productIconTheme)
               await wc.update(
-                'workbench.productIconTheme',
+                "workbench.productIconTheme",
                 data.productIconTheme,
-                vscode.ConfigurationTarget.Global
+                vscode.ConfigurationTarget.Global,
               );
             if (data.customAssociations)
               await vscode.workspace
-                .getConfiguration('horizonTheme')
+                .getConfiguration("horizonTheme")
                 .update(
-                  'customIconAssociations',
+                  "customIconAssociations",
                   data.customAssociations,
-                  vscode.ConfigurationTarget.Global
+                  vscode.ConfigurationTarget.Global,
                 );
             if (data.horizonTags) {
-              const ht = vscode.workspace.getConfiguration('horizonTags');
+              const ht = vscode.workspace.getConfiguration("horizonTags");
               for (const [k, v] of Object.entries(data.horizonTags))
                 await ht.update(k, v, vscode.ConfigurationTarget.Global);
             }
             if (data.scheduler) {
-              const hc = vscode.workspace.getConfiguration('horizonTheme');
+              const hc = vscode.workspace.getConfiguration("horizonTheme");
               for (const [k, v] of Object.entries(data.scheduler))
                 await hc.update(
                   `scheduler.${k}`,
                   v,
-                  vscode.ConfigurationTarget.Global
+                  vscode.ConfigurationTarget.Global,
                 );
               startScheduler(this._ctx);
             }
             if (data.editorPrefs) {
               const ep = data.editorPrefs,
-                hc = vscode.workspace.getConfiguration('horizonTheme'),
-                ec = vscode.workspace.getConfiguration('editor');
+                hc = vscode.workspace.getConfiguration("horizonTheme"),
+                ec = vscode.workspace.getConfiguration("editor");
               if (ep.livePreviewEnabled != null)
                 await hc.update(
-                  'livePreview.enabled',
+                  "livePreview.enabled",
                   ep.livePreviewEnabled,
-                  vscode.ConfigurationTarget.Global
+                  vscode.ConfigurationTarget.Global,
                 );
               if (ep.livePreviewDelay)
                 await hc.update(
-                  'livePreview.delay',
+                  "livePreview.delay",
                   ep.livePreviewDelay,
-                  vscode.ConfigurationTarget.Global
+                  vscode.ConfigurationTarget.Global,
                 );
               if (ep.fontSize)
                 await ec.update(
-                  'fontSize',
+                  "fontSize",
                   ep.fontSize,
-                  vscode.ConfigurationTarget.Global
+                  vscode.ConfigurationTarget.Global,
                 );
               if (ep.lineHeight)
                 await ec.update(
-                  'lineHeight',
+                  "lineHeight",
                   ep.lineHeight,
-                  vscode.ConfigurationTarget.Global
+                  vscode.ConfigurationTarget.Global,
                 );
               if (ep.fontLigatures != null)
                 await ec.update(
-                  'fontLigatures',
+                  "fontLigatures",
                   ep.fontLigatures,
-                  vscode.ConfigurationTarget.Global
+                  vscode.ConfigurationTarget.Global,
                 );
               if (ep.cursorStyle)
                 await ec.update(
-                  'cursorStyle',
+                  "cursorStyle",
                   ep.cursorStyle,
-                  vscode.ConfigurationTarget.Global
+                  vscode.ConfigurationTarget.Global,
                 );
               if (ep.cursorBlinking)
                 await ec.update(
-                  'cursorBlinking',
+                  "cursorBlinking",
                   ep.cursorBlinking,
-                  vscode.ConfigurationTarget.Global
+                  vscode.ConfigurationTarget.Global,
                 );
               if (ep.minimapEnabled != null)
                 await vscode.workspace
-                  .getConfiguration('editor.minimap')
+                  .getConfiguration("editor.minimap")
                   .update(
-                    'enabled',
+                    "enabled",
                     ep.minimapEnabled,
-                    vscode.ConfigurationTarget.Global
+                    vscode.ConfigurationTarget.Global,
                   );
               if (ep.bracketPairs != null)
                 await ec.update(
-                  'bracketPairColorization.enabled',
+                  "bracketPairColorization.enabled",
                   ep.bracketPairs,
-                  vscode.ConfigurationTarget.Global
+                  vscode.ConfigurationTarget.Global,
                 );
             }
             vscode.window.showInformationMessage(
-              '✦ Horizon settings imported!'
+              "✦ Horizon settings imported!",
             );
             sendConfigToWebview(wv.webview);
           } catch (e) {
             vscode.window.showErrorMessage(
-              'Horizon: Import failed — ' + e.message
+              "Horizon: Import failed — " + e.message,
             );
           }
           break;
         }
-        case 'resetSettings': {
+        case "resetSettings": {
           const ok = await vscode.window.showWarningMessage(
-            'Reset ALL Horizon settings to defaults?',
-            'Reset',
-            'Cancel'
+            "Reset ALL Horizon settings to defaults?",
+            "Reset",
+            "Cancel",
           );
-          if (ok !== 'Reset') break;
+          if (ok !== "Reset") break;
           const wc = vscode.workspace.getConfiguration();
           await wc.update(
-            'workbench.colorTheme',
-            'horizon-core.deep-blue',
-            vscode.ConfigurationTarget.Global
+            "workbench.colorTheme",
+            "horizon-core.deep-blue",
+            vscode.ConfigurationTarget.Global,
           );
           await wc.update(
-            'workbench.iconTheme',
-            'Horizon Icons',
-            vscode.ConfigurationTarget.Global
+            "workbench.iconTheme",
+            "Horizon Icons",
+            vscode.ConfigurationTarget.Global,
           );
           await wc.update(
-            'workbench.productIconTheme',
-            'Default',
-            vscode.ConfigurationTarget.Global
+            "workbench.productIconTheme",
+            "Default",
+            vscode.ConfigurationTarget.Global,
           );
-          const hc = vscode.workspace.getConfiguration('horizonTheme');
+          const hc = vscode.workspace.getConfiguration("horizonTheme");
           await hc.update(
-            'scheduler.enabled',
+            "scheduler.enabled",
             false,
-            vscode.ConfigurationTarget.Global
+            vscode.ConfigurationTarget.Global,
           );
           await hc.update(
-            'livePreview.enabled',
+            "livePreview.enabled",
             false,
-            vscode.ConfigurationTarget.Global
+            vscode.ConfigurationTarget.Global,
           );
           await hc.update(
-            'customIconAssociations',
+            "customIconAssociations",
             {},
-            vscode.ConfigurationTarget.Global
+            vscode.ConfigurationTarget.Global,
           );
-          vscode.window.showInformationMessage('✦ Horizon reset to defaults.');
+          vscode.window.showInformationMessage("✦ Horizon reset to defaults.");
           sendConfigToWebview(wv.webview);
           break;
         }
-        case 'openExternal':
+        case "openExternal":
           vscode.env.openExternal(vscode.Uri.parse(m.url));
           break;
-        case 'copyToClipboard':
+        case "copyToClipboard":
           await vscode.env.clipboard.writeText(m.text);
-          vscode.window.showInformationMessage('✦ Copied to clipboard!');
+          vscode.window.showInformationMessage("✦ Copied to clipboard!");
           break;
-        case 'getConfig':
+        case "getConfig":
           sendConfigToWebview(wv.webview);
           break;
       }
@@ -642,17 +669,17 @@ class HorizonSettingsProvider {
 // ══════════════════════════════════════════════
 function activate(context) {
   const wc = vscode.workspace.getConfiguration();
-  const cur = wc.get('workbench.colorTheme');
-  if (!cur || cur === 'Default Dark+' || cur === 'Default Dark Modern') {
+  const cur = wc.get("workbench.colorTheme");
+  if (!cur || cur === "Default Dark+" || cur === "Default Dark Modern") {
     wc.update(
-      'workbench.colorTheme',
-      'horizon-core.deep-blue',
-      vscode.ConfigurationTarget.Global
+      "workbench.colorTheme",
+      "horizon-core.deep-blue",
+      vscode.ConfigurationTarget.Global,
     );
     wc.update(
-      'workbench.iconTheme',
-      'Horizon Icons',
-      vscode.ConfigurationTarget.Global
+      "workbench.iconTheme",
+      "Horizon Icons",
+      vscode.ConfigurationTarget.Global,
     );
   }
 
@@ -663,24 +690,24 @@ function activate(context) {
   context.subscriptions.push(
     vscode.window.registerWebviewViewProvider(
       HorizonSettingsProvider.viewType,
-      provider
-    )
+      provider,
+    ),
   );
 
   const cmds = {
-    'extension.horizonTags': () => horizonTags(vscode.window.activeTextEditor),
-    'horizonTheme.openSettings': () =>
+    "extension.horizonTags": () => horizonTags(vscode.window.activeTextEditor),
+    "horizonTheme.openSettings": () =>
       vscode.commands.executeCommand(
-        'workbench.view.extension.horizon-sidebar'
+        "workbench.view.extension.horizon-sidebar",
       ),
-    'horizonTheme.exportSettings': () =>
-      globalProvider?._view?.webview.postMessage({ command: 'triggerExport' }),
-    'horizonTheme.importSettings': () =>
-      globalProvider?._view?.webview.postMessage({ command: 'triggerImport' }),
-    'horizonTheme.resetSettings': () =>
-      globalProvider?._view?.webview.postMessage({ command: 'triggerReset' }),
-    'horizonTheme.randomTheme': () =>
-      globalProvider?._view?.webview.postMessage({ command: 'triggerRandom' }),
+    "horizonTheme.exportSettings": () =>
+      globalProvider?._view?.webview.postMessage({ command: "triggerExport" }),
+    "horizonTheme.importSettings": () =>
+      globalProvider?._view?.webview.postMessage({ command: "triggerImport" }),
+    "horizonTheme.resetSettings": () =>
+      globalProvider?._view?.webview.postMessage({ command: "triggerReset" }),
+    "horizonTheme.randomTheme": () =>
+      globalProvider?._view?.webview.postMessage({ command: "triggerRandom" }),
   };
   for (const [id, fn] of Object.entries(cmds))
     context.subscriptions.push(vscode.commands.registerCommand(id, fn));
@@ -688,25 +715,25 @@ function activate(context) {
   startScheduler(context);
 
   vscode.workspace.onDidChangeConfiguration(() => {
-    const nc = vscode.workspace.getConfiguration('horizonTags').get('colors');
+    const nc = vscode.workspace.getConfiguration("horizonTags").get("colors");
     if (
       !(
         tagColorList.length === nc.length &&
         tagColorList.every((v, i) => v === nc[i])
       )
     )
-      vscode.commands.executeCommand('workbench.action.reloadWindow');
+      vscode.commands.executeCommand("workbench.action.reloadWindow");
   });
 
   tagDecoratorList.length = 0;
   for (let i in tagColorList) {
     let s;
     switch (colorStyle) {
-      case 'background-color':
+      case "background-color":
         s = { backgroundColor: tagColorList[i] };
         break;
-      case 'border':
-        s = { border: '1px solid ' + tagColorList[i] };
+      case "border":
+        s = { border: "1px solid " + tagColorList[i] };
         break;
       default:
         s = { color: tagColorList[i] };
@@ -716,32 +743,30 @@ function activate(context) {
 
   horizonTags(vscode.window.activeTextEditor);
   vscode.workspace.onDidOpenTextDocument(
-    e => horizonTags(e),
+    (e) => horizonTags(e),
     null,
-    context.subscriptions
+    context.subscriptions,
   );
   vscode.window.onDidChangeActiveTextEditor(
-    e => horizonTags(e),
+    (e) => horizonTags(e),
     null,
-    context.subscriptions
+    context.subscriptions,
   );
   vscode.workspace.onDidChangeTextDocument(
-    e => {
+    (e) => {
       const ae = vscode.window.activeTextEditor;
       if (ae && e.document === ae.document) horizonTags(ae);
     },
     null,
-    context.subscriptions
+    context.subscriptions,
   );
 
   const ci =
-    vscode.workspace.getConfiguration('horizonTheme').customIconAssociations;
+    vscode.workspace.getConfiguration("horizonTheme").customIconAssociations;
   if (ci?.constructor === Object && Object.keys(ci).length) {
-    try {
-      applyHorizonIcons(ci);
-    } catch (e) {
-      vscode.window.showErrorMessage(e.message);
-    }
+    applyHorizonIcons(ci).catch((e) =>
+      vscode.window.showErrorMessage(e.message),
+    );
   }
 }
 
@@ -1353,26 +1378,26 @@ function horizonTags(activeEditor) {
     return;
   let text = activeEditor.document.getText();
   let map = tagDecoratorList.map(() => []);
-  const tagRemover = s => {
+  const tagRemover = (s) => {
     let m;
-    const cb = '([\\s\\S])*?';
+    const cb = "([\\s\\S])*?";
     const re = new RegExp(
       [
         `<!--${cb}-->`,
         `<script( ${cb})?>${cb}</script>`,
-        ...(isLanguageUsed(activeEditor, 'vue')
+        ...(isLanguageUsed(activeEditor, "vue")
           ? [`{{${cb}}}`, `="${cb}"`]
           : []),
-      ].join('|'),
-      'gm'
+      ].join("|"),
+      "gm",
     );
     while ((m = re.exec(s))) {
       const n = m[0].length;
-      s = s.substring(0, m.index) + ' '.repeat(n) + s.substring(m.index + n);
+      s = s.substring(0, m.index) + " ".repeat(n) + s.substring(m.index + n);
     }
     return s;
   };
-  const assignColors = txt => {
+  const assignColors = (txt) => {
     const re = /(<(?!(\?|%))\/?[^]+?(?<!(\?|%))>)/g;
     let m,
       stack = [],
@@ -1381,29 +1406,29 @@ function horizonTags(activeEditor) {
       round;
     while ((m = re.exec(txt))) {
       const tag = m[0];
-      if (tag.substring(0, 2) === '</') {
+      if (tag.substring(0, 2) === "</") {
         if (denylistTagsFormattedEndings.includes(tag)) continue;
         const s = activeEditor.document.positionAt(m.index),
-          e = activeEditor.document.positionAt(m.index + tag.indexOf('>') + 1);
+          e = activeEditor.document.positionAt(m.index + tag.indexOf(">") + 1);
         const dec = { range: new vscode.Range(s, e), hoverMessage: null };
         if (stack.length > 0) {
           round = stack.pop();
           cnt = round;
           map[round].push(dec);
         } else rb.push(dec);
-      } else if (tag[0] === '<') {
-        const fw = tag.substring(0, tag.indexOf(' ') + 1),
+      } else if (tag[0] === "<") {
+        const fw = tag.substring(0, tag.indexOf(" ") + 1),
           fl = tag.match(/[^\r\n]+/g);
         if (denylistTagsFormattedBeginnings.includes(tag)) continue;
         if (denylistTagsFormattedBeginningsWithWhitespaces.includes(fw))
           continue;
         if (fl && denylistTagsFormattedBeginningsWithLinebreaks.includes(fl[0]))
           continue;
-        if (tag.slice(-2) === '/>') continue;
+        if (tag.slice(-2) === "/>") continue;
         const sp = activeEditor.document.positionAt(m.index);
         const ep = activeEditor.document.positionAt(
           m.index +
-            (tag.indexOf(' ') !== -1 ? tag.indexOf(' ') : tag.indexOf('>'))
+            (tag.indexOf(" ") !== -1 ? tag.indexOf(" ") : tag.indexOf(">")),
         );
         const cs = activeEditor.document.positionAt(re.lastIndex - 1),
           ce = activeEditor.document.positionAt(re.lastIndex);

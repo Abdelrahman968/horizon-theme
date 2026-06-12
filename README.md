@@ -9,6 +9,10 @@
 
 ---
 
+## [3.8.0]
+
+- Make extension compatible with VS Code for the Web
+
 ## [3.7.0]
 
 ### ✨ New Icons
