@@ -2,7 +2,7 @@
   "name": "horizon-theme",
   "displayName": "Horizon Ultimate Themes",
   "description": "A collection of Horizon Themes with Core and Gamers editions, all paired with Horizon Icons and HorizonTags.",
-  "version": "3.8.0",
+  "version": "3.9.0",
   "publisher": "horizon-core",
   "license": "MIT",
   "icon": "icon.png",
@@ -75,6 +75,12 @@
           "name": "Horizon Settings",
           "icon": "$(symbol-color)",
           "contextualTitle": "Horizon Themes"
+        },
+        {
+          "id": "horizonTheme.tagSummary",
+          "name": "Tag Summary",
+          "icon": "$(symbol-color)",
+          "contextualTitle": "Horizon Tag Summary"
         }
       ]
     },
@@ -107,6 +113,59 @@
         "command": "horizonTheme.randomTheme",
         "title": "Horizon: Apply Random Theme",
         "icon": "$(symbol-misc)"
+      },
+      {
+        "command": "horizonTheme.quickSwitch",
+        "title": "Horizon: Quick Switch Theme",
+        "icon": "$(symbol-color)"
+      },
+      {
+        "command": "horizonTheme.pickIcon",
+        "title": "Horizon: Assign Custom Icon…",
+        "icon": "$(symbol-color)"
+      },
+      {
+        "command": "horizonTheme.toggleTagsEverywhere",
+        "title": "Horizon: Toggle Tag Highlighting Everywhere"
+      },
+      {
+        "command": "horizonTheme.exportPalette",
+        "title": "Horizon: Export Theme Palette as Image",
+        "icon": "$(device-camera)"
+      },
+      {
+        "command": "horizonTheme.setWorkspaceTheme",
+        "title": "Horizon: Set Theme for This Workspace",
+        "icon": "$(symbol-color)"
+      },
+      {
+        "command": "horizonTheme.setWorkspaceAccent",
+        "title": "Horizon: Set Workspace Accent Color",
+        "icon": "$(paintcan)"
+      },
+      {
+        "command": "horizonTheme.copyColors",
+        "title": "Horizon: Copy Theme Colors to Clipboard",
+        "icon": "$(clippy)"
+      },
+      {
+        "command": "horizonTheme.refreshTagSummary",
+        "title": "Horizon: Refresh Tag Summary",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "horizonTheme.jumpToTag",
+        "title": "Horizon: Jump to Tag"
+      },
+      {
+        "command": "horizonTheme.pickFont",
+        "title": "Horizon: Choose Editor Font…",
+        "icon": "$(text-size)"
+      },
+      {
+        "command": "horizonTheme.clearWorkspaceAccent",
+        "title": "Horizon: Clear Workspace Accent Color",
+        "icon": "$(paintcan)"
       }
     ],
     "menus": {
@@ -115,9 +174,63 @@
           "command": "horizonTheme.openSettings",
           "when": "view == horizonTheme.settingsView",
           "group": "navigation"
+        },
+        {
+          "command": "horizonTheme.refreshTagSummary",
+          "when": "view == horizonTheme.tagSummary",
+          "group": "navigation"
         }
       ]
     },
+    "walkthroughs": [
+      {
+        "id": "horizonWelcome",
+        "title": "Welcome to Horizon Themes",
+        "description": "A quick tour of themes, icons, tag highlighting, and auto-switching.",
+        "steps": [
+          {
+            "id": "horizonPickTheme",
+            "title": "Choose a Theme",
+            "description": "Browse Horizon's color themes and pick your favorite — or let it surprise you.\n[Quick Switch Theme](command:horizonTheme.quickSwitch)\n[Random Theme](command:horizonTheme.randomTheme)",
+            "media": {
+              "markdown": "media/walkthrough/theme.md"
+            }
+          },
+          {
+            "id": "horizonIcons",
+            "title": "Customize File Icons",
+            "description": "Assign custom Horizon icons to specific file extensions, file names, or folders.\n[Assign a Custom Icon](command:horizonTheme.pickIcon)",
+            "media": {
+              "markdown": "media/walkthrough/icons.md"
+            }
+          },
+          {
+            "id": "horizonTagsStep",
+            "title": "Horizon Tags",
+            "description": "Matching pairs of HTML/JSX/Vue tags are highlighted in different colors so nesting is easy to follow at a glance.\n[Toggle for All File Types](command:horizonTheme.toggleTagsEverywhere)",
+            "media": {
+              "markdown": "media/walkthrough/tags.md"
+            }
+          },
+          {
+            "id": "horizonScheduler",
+            "title": "Auto-Switch Themes",
+            "description": "Set up a day/night schedule, or follow your OS light/dark appearance automatically from the Horizon settings panel.\n[Open Horizon Settings](command:horizonTheme.openSettings)",
+            "media": {
+              "markdown": "media/walkthrough/scheduler.md"
+            }
+          },
+          {
+            "id": "horizonWorkspace",
+            "title": "Make Workspaces Stand Out",
+            "description": "Give each project its own Horizon theme and accent color, so you never lose track of which window you're in.\n[Set Workspace Theme](command:horizonTheme.setWorkspaceTheme)\n[Set Workspace Accent](command:horizonTheme.setWorkspaceAccent)",
+            "media": {
+              "markdown": "media/walkthrough/workspace.md"
+            }
+          }
+        ]
+      }
+    ],
     "themes": [
       {
         "id": "horizon-core.deep-blue",
@@ -464,6 +577,12 @@
             "description": "Automatically switch themes based on time of day.",
             "scope": "window"
           },
+          "horizonTheme.scheduler.followSystem": {
+            "type": "boolean",
+            "default": false,
+            "description": "Switch between the day and night theme based on your OS/editor light or dark appearance instead of a fixed schedule.",
+            "scope": "window"
+          },
           "horizonTheme.scheduler.dayTheme": {
             "type": "string",
             "default": "horizon-core.modern-light",
@@ -486,6 +605,18 @@
             "type": "string",
             "default": "20:00",
             "description": "Time when nighttime theme activates (HH:MM).",
+            "scope": "window"
+          },
+          "horizonTheme.focusModeTheme": {
+            "type": "string",
+            "default": "",
+            "description": "Horizon theme to apply when the VS Code window loses focus. Leave empty to disable.",
+            "scope": "window"
+          },
+          "horizonTheme.zenModeTheme": {
+            "type": "string",
+            "default": "",
+            "description": "Horizon theme to apply when Zen Mode is toggled. Leave empty to disable.",
             "scope": "window"
           }
         }
@@ -583,5 +714,8 @@
   "repository": {
     "type": "git",
     "url": "https://github.com/Abdelrahman968/horizon-theme"
+  },
+  "dependencies": {
+    "jsonc-parser": "^3.3.1"
   }
 }

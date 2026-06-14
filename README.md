@@ -9,127 +9,90 @@
 
 ---
 
+## [3.9.0]
+
+### ✨ New Features
+
+#### 🖼️ Export Theme Palette as Image — `horizonTheme.exportPalette`
+
+- Reads colors directly from the active Horizon theme file
+- Generates an SVG file displaying key color swatches: Editor BG/FG, Activity Bar, Status Bar, Title Bar, Accent, and terminal ANSI colors
+- Includes the theme name as a header — great for sharing on social media or visually comparing themes
+
+#### 🗂️ Set Workspace Theme (Per-Project) — `horizonTheme.setWorkspaceTheme`
+
+- Opens a QuickPick listing all Horizon themes
+- Saves the selection to Workspace settings (`.vscode/settings.json`) instead of global settings
+- Each project now remembers its own theme independently
+
+#### 🎨 Set Workspace Accent Color — `horizonTheme.setWorkspaceAccent`
+
+- Prompts for a hex color and applies it to the Title Bar, Activity Bar, and Status Bar for the current workspace only
+- Uses `workbench.colorCustomizations` at Workspace scope — ideal for visually distinguishing multiple project windows
+
+#### 🧹 Clear Workspace Accent — `horizonTheme.clearWorkspaceAccent`
+
+- Removes all accent color overrides (Title Bar, Activity Bar, Status Bar) from workspace settings
+- Instantly restores the original theme appearance without manual editing
+
+#### 🎉 Onboarding Walkthrough
+
+- First install now shows a "Take the Tour" prompt opening an interactive 5-step walkthrough: Themes, Icons, Horizon Tags, Scheduler, and Workspace Customization
+- Each step includes direct command links for immediate action
+
+#### ⭐ Rate & Review Prompt
+
+- Tracks usage count and install date; after 7 days + 50 activations, shows a one-time prompt:
+  _"You've been using Horizon Themes for a while — enjoying it? A review helps a lot! 🙏"_
+- **Leave a Review ⭐** → opens Marketplace reviews tab directly
+- **Already Did** → saves response and never asks again
+- **Remind Me Later** → resets the counter, asks again after 50 more activations
+- **No Thanks** → dismisses permanently
+
+#### 🌳 Tag Summary Tree View
+
+- New sidebar panel listing all Horizon Tags tag pairs found in the active file, grouped by filename
+- Click any entry to jump directly to that line in the editor
+- Includes a Refresh button; updates automatically on file changes
+
+#### 📋 Copy Theme Colors to Clipboard — `horizonTheme.copyColors`
+
+- Prompts to choose output format:
+  - **JSON** — `workbench.colorCustomizations` structure
+  - **CSS Variables** — `--editor-background: #...` ready to paste in CSS
+  - **Plain List** — `key: value` line by line
+- Copies all colors of the active theme to the clipboard with a confirmation message
+
+#### 🔤 Font Family Picker — `horizonTheme.pickFont`
+
+- Lists 20 popular coding fonts: JetBrains Mono, Fira Code, Cascadia Code, Monaspace Neon/Argon/Xenon, Geist Mono, Maple Mono, and more
+- After selection, prompts to enable or disable ligatures
+- Supports typing a fully custom font family name
+- Accessible from the Settings panel
+
+#### 🎯 Context Themes (Focus Mode & Zen Mode)
+
+- **Focus Mode Theme**: automatically switches to a configured theme when the VS Code window loses focus, and restores the original theme on return
+- **Zen Mode Theme**: switches to a calmer theme when Zen Mode is activated, restores on exit
+- Both configurable from the Context Themes section in the Settings panel
+
+### ⚡ Performance Improvements
+
+- **Debounced Tag Highlighting**: tag highlighting now waits 200 ms after the last change before running, noticeably improving performance on large files
+- **Cached Config (`getTagsConfig`)**: extension settings are read once and cached; invalidated only when `horizonTags` configuration changes, reducing redundant API calls
+- **Document Version Cache (`_tagCache`)**: the tag engine checks `document.version` before re-parsing — if unchanged, decorations are re-applied from cache without a full text parse; cache holds the last 20 files with automatic eviction
+- **Memoized Regex (`getTagRemoverRe`)**: the regex for stripping comments and script/style blocks is built once and reused; only rebuilt when the denylist configuration changes
+- **Selective Config Invalidation**: `onDidChangeConfiguration` now checks `e.affectsConfiguration('horizonTags')` before clearing the cache, avoiding unnecessary invalidations on unrelated settings changes
+
+### ➖ New Tap
+
+- Add Commend Tap in Extension Panel
+
+---
+
 ## [3.8.0]
 
 - Make extension compatible with VS Code for the Web
-
-## [3.7.0]
-
-### ✨ New Icons
-
-- Add folder icons: debian, gemini, yaml, zed
-- Add file icons: capistrano, gemini, istanbul, jsonConfig, nixLock, rustDist, rustError, rustLint
-- Rename file icons: yml => yaml, ymlApp => yamlApp, ymlCi => yamlCi, ymlConfig => yamlConfig, ymlCron => -yamlCron, ymlDatabase => yamlDatabase, ymlExample => yamlExample, ymlFunding => yamlFunding, ymlPublish => yamlPublish, ymlStorage => yamlStorage, ymlTemporary => yamlTemporary
-
-- Make extension compatible with VS Code for the Web@beta
-- Add file icons: elixirApp, elixirConfig, elixirEnv, elixirLint, phoenix
-
-- Add folder icons: claude, cursor, debian, tailwind, vitepress
-- Add file icons: claude, cursor, gitCliff, gitCliffIgnore, kdl
-- Rename folder icon: cursor => pointer
-- Rename file icon: cursor => pointer
-
-- Fix file icon: ejs files
-
-## [3.6.3]
-
-### 🔧 Fixes & Improvements
-
-#### 🎨 Horizon Deep Blue — Color Refinements
-
-- Unified `statusBar.background` with the editor background (`#181D27`) for a more seamless look
-- Updated `statusBar.foreground` to full white (`#ffffff`) for better readability
-- Fixed `statusBar.noFolderBackground` and `statusBar.debuggingBackground` to match the main background instead of transparent/accent colors
-- Aligned `titleBar`, `tab`, `editorGroupHeader`, `editorHoverWidget`, and `editorSuggestWidget` colors with the sidebar panel for visual consistency
-- Corrected `tab.activeBorder` to use the soft blue-white accent (`#AABCF2`) matching hover widget highlights
-- Synced `sideBar.border` with the activity bar border color (`#232A35`)
-
-#### 🚸 Add New Icon
-
-- New EJS Icon
-
-## [3.6.2]
-
-### 🔧 Fixes & Improvements
-
-## Fixed an issue
-
-- where the sidebar settings panel was not displaying correctly
-- where the theme scheduler was not working correctly
-- where the backup & restore feature was not working correctly
-- where the random theme feature was not working correctly
-- where the HorizonTags feature was not working correctly
-- where the Horizon Product Icons feature was not working correctly
-- where the live theme preview feature was not working correctly
-- where the sidebar settings panel was not working correctly
-- where the theme scheduler was not working correctly
-- where the backup & restore feature was not working correctly
-- where the random theme feature was not working correctly
-- where the HorizonTags feature was not working correctly
-- where the Horizon Product Icons feature was not working correctly
-- where the live theme preview feature was not working correctly
-
-## ✨ What's New in v3.6.1
-
-- 🎨 **Built-in Horizon Product Icons** — 36 custom SVG icons replacing VS Code's toolbar, sidebar, terminal, git & notification icons. No extra extension needed.
-- 🔍 **Live Theme Preview** — hover over any theme to instantly preview it before applying (disabled by default, toggle in sidebar)
-- ⚙️ **Full Sidebar Settings Panel** — font size, cursor style, minimap, ligatures, bracket colors & more
-- 🌅 **Theme Scheduler** — automatically switch between day & night themes by time
-- 📦 **Export / Import Settings** — full backup & restore of your Horizon configuration
-
----
-
-## 🎨 Color Themes
-
-Horizon ships with **two editions**: **Core** for minimalists and **Gamers** for HoYoverse fans.
-
----
-
-### 🔵 Core Edition
-
-| Theme                             | Style |
-| --------------------------------- | ----- |
-| Horizon Themes Core: Deep Blue    | Dark  |
-| Horizon Themes Core: Dark Plus    | Dark  |
-| Horizon Themes Core: Modern Light | Light |
-
----
-
-### 🎮 Gamers Edition — HoYoverse
-
-Each character theme comes in **Light** and **Dark** variants. Select characters also include a **High Contrast** version.
-
-#### Genshin Impact
-
-| Character         | Light | Dark | High Contrast |
-| ----------------- | :---: | :--: | :-----------: |
-| Citlali           |  ✅   |  ✅  |       —       |
-| Layla             |  ✅   |  ✅  |       —       |
-| Furina            |  ✅   |  ✅  |       —       |
-| Ganyu             |  ✅   |  ✅  |      ✅       |
-| Yumemizuki Mizuki |  ✅   |  ✅  |      ✅       |
-| Sandrone          |  ✅   |  ✅  |       —       |
-| Scaramouche       |  ✅   |  ✅  |       —       |
-| Wanderer          |  ✅   |  ✅  |       —       |
-| Columbina         |  ✅   |  ✅  |       —       |
-| Ill Dottore       |  ✅   |  ✅  |       —       |
-| Yae Miko          |  ✅   |  ✅  |       —       |
-| Kamisato Ayaka    |  ✅   |  ✅  |       —       |
-| Chiori            |  ✅   |  ✅  |       —       |
-| Skirk             |  ✅   |  ✅  |       —       |
-
-#### Honkai: Star Rail
-
-| Character  | Light | Dark |
-| ---------- | :---: | :--: |
-| Robin      |  ✅   |  ✅  |
-| Kafka      |  ✅   |  ✅  |
-| Firefly    |  ✅   |  ✅  |
-| Aventurine |  ✅   |  ✅  |
-| Dan Heng   |  ✅   |  ✅  |
-| Ruan Mei   |  ✅   |  ✅  |
-| Cyrene     |  ✅   |  ✅  |
-| March 7th  |  ✅   |  ✅  |
 
 ---
 

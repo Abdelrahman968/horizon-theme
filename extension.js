@@ -4,6 +4,9 @@ var {
     getOwnPropertyDescriptor: K,
   } = Object,
   L = Object.prototype.hasOwnProperty;
+
+const jsonc = require("jsonc-parser");
+
 var h = new WeakMap(),
   M = (f) => {
     var T = h.get(f),
@@ -46,8 +49,42 @@ const te = new TextEncoder();
 // ══════════════════════════════════════════════
 // CONSTANTS
 // ══════════════════════════════════════════════
-const EXTENSION_VERSION = "3.6.1";
+const EXTENSION_VERSION = "3.9.0";
 const EXTENSION_ID = "horizon-core.horizon-theme";
+
+// Shared list of Horizon color themes (used by the webview theme grid,
+// the random-theme command, and the new quick-switch status bar item).
+const HORIZON_THEMES = [
+  "horizon-core.deep-blue",
+  "horizon-core.dark-plus",
+  "horizon-core.modern-light",
+  "horizon-themes-ganyu-dark",
+  "horizon-themes-furina-dark",
+  "horizon-themes-scaramouche-dark",
+  "horizon-themes-columbina-dark",
+  "horizon-themes-citlali-dark",
+  "horizon-themes-skirk-dark",
+  "horizon-themes-wanderer-dark",
+  "horizon-themes-mizuki-dark",
+  "horizon-themes-sandrone-dark",
+  "horizon-themes-yaemiko-dark",
+  "horizon-themes-kafka-dark",
+  "horizon-themes-firefly-dark",
+  "horizon-themes-ruanmei-dark",
+  "horizon-themes-robin-dark",
+  "horizon-themes-aventurine-dark",
+  "horizon-themes-march7th-dark",
+  "horizon-themes-cyrene-dark",
+  "horizon-themes-danheng-dark",
+];
+
+// Friendly display names for the quick-switch picker.
+const themeLabel = (id) =>
+  id
+    .replace(/^horizon-(core|themes)[-.]?/, "")
+    .replace(/-dark$/, "")
+    .replace(/[-.]/g, " ")
+    .replace(/\b\w/g, (c) => c.toUpperCase());
 
 // ══════════════════════════════════════════════
 // HORIZON ICONS ENGINE
@@ -122,7 +159,7 @@ var applyHorizonIcons = async (f) => {
     const orig = await vscode.workspace.fs.readFile(iconUri);
     await vscode.workspace.fs.writeFile(bkUri, orig);
   }
-  let o = JSON.parse(td.decode(await vscode.workspace.fs.readFile(bkUri))),
+  let o = jsonc.parse(td.decode(await vscode.workspace.fs.readFile(bkUri))),
     E = Object.values(o.iconDefinitions).map((I) => I.iconPath);
   O(
     o,
@@ -135,36 +172,268 @@ var applyHorizonIcons = async (f) => {
 };
 
 // ══════════════════════════════════════════════
+// QUICK ICON PICKER
+// ══════════════════════════════════════════════
+// Lets the user browse every icon bundled with Horizon Icons and assign it
+// to a file extension, file name, or folder name — without hand-editing
+// `horizonTheme.customIconAssociations`. Desktop only (see applyHorizonIcons).
+async function pickHorizonIcon() {
+  if (isWeb) {
+    vscode.window.showWarningMessage(
+      "✦ Horizon: Custom icon associations require VS Code Desktop and are not available in VS Code for the Web.",
+    );
+    return;
+  }
+
+  let iconNames;
+  try {
+    const base = vscode.extensions.getExtension(EXTENSION_ID).extensionUri;
+    const iconUri = vscode.Uri.joinPath(base, "icon-theme.json");
+    const theme = jsonc.parse(
+      td.decode(await vscode.workspace.fs.readFile(iconUri)),
+    );
+    iconNames = [
+      ...new Set(
+        Object.values(theme.iconDefinitions)
+          .map((d) => d.iconPath)
+          .filter((p) => p.startsWith("i/") && p.endsWith(".svg"))
+          .map((p) => p.slice(2, -4)),
+      ),
+    ].sort();
+  } catch (e) {
+    vscode.window.showErrorMessage(
+      "✦ Horizon: Could not read the icon list — " + e.message,
+    );
+    return;
+  }
+
+  const icon = await vscode.window.showQuickPick(iconNames, {
+    title: "✦ Horizon Icons — pick an icon",
+    placeHolder: "Search for an icon (e.g. rust, docker, python)",
+    matchOnDescription: true,
+  });
+  if (!icon) return;
+
+  const kind = await vscode.window.showQuickPick(
+    [
+      {
+        label: "File Extension",
+        detail: "e.g. type 'rs' to match every *.rs file",
+        prefix: "*.",
+      },
+      {
+        label: "File Name",
+        detail: "e.g. type 'Cargo.toml' to match that exact file",
+        prefix: "",
+      },
+      {
+        label: "Folder Name",
+        detail: "e.g. type 'src' to match folders named src",
+        prefix: "/",
+      },
+    ],
+    { title: `✦ Apply '${icon}' icon to…` },
+  );
+  if (!kind) return;
+
+  const pattern = await vscode.window.showInputBox({
+    title: `✦ Horizon Icons — ${kind.label}`,
+    placeHolder:
+      kind.prefix === "*." ? "rs" : kind.prefix === "/" ? "src" : "Cargo.toml",
+    prompt: `Enter the ${kind.label.toLowerCase()} to associate with the '${icon}' icon`,
+    validateInput: (v) => (v?.trim() ? null : "Please enter a value"),
+  });
+  if (!pattern) return;
+
+  const key = kind.prefix + pattern.trim().replace(/^[*./]+/, "");
+
+  const cfg = vscode.workspace.getConfiguration("horizonTheme");
+  const cur = cfg.get("customIconAssociations") || {};
+  const list = Array.isArray(cur[icon]) ? [...cur[icon]] : [];
+  if (!list.includes(key)) list.push(key);
+  const next = { ...cur, [icon]: list };
+
+  try {
+    await applyHorizonIcons(next);
+    await cfg.update(
+      "customIconAssociations",
+      next,
+      vscode.ConfigurationTarget.Global,
+    );
+    vscode.window.showInformationMessage(
+      `✦ Horizon: '${icon}' icon applied to ${key}`,
+    );
+  } catch (e) {
+    vscode.window.showErrorMessage("✦ Horizon: " + e.message);
+  }
+}
+
+// ══════════════════════════════════════════════
+// EXPORT THEME PALETTE
+// ══════════════════════════════════════════════
+// Generates a shareable SVG swatch sheet for the active Horizon theme —
+// useful for posting on social media or quickly comparing palettes.
+async function exportThemePalette() {
+  try {
+    const themeId = vscode.workspace
+      .getConfiguration("workbench")
+      .get("colorTheme");
+    const ext = vscode.extensions.getExtension(EXTENSION_ID);
+    const themeDef = (ext.packageJSON.contributes?.themes || []).find(
+      (t) => t.id === themeId || t.label === themeId,
+    );
+    if (!themeDef) {
+      vscode.window.showWarningMessage(
+        `✦ Horizon: '${themeId}' isn't a Horizon theme — palette export only works for Horizon themes.`,
+      );
+      return;
+    }
+
+    const themeUri = vscode.Uri.joinPath(ext.extensionUri, themeDef.path);
+    let themeContent = td.decode(await vscode.workspace.fs.readFile(themeUri));
+    // Remove BOM if present
+    if (themeContent.charCodeAt(0) === 0xfeff) {
+      themeContent = themeContent.slice(1);
+    }
+    const themeJson = jsonc.parse(themeContent);
+    const c = themeJson.colors || {};
+
+    const swatchKeys = [
+      ["editor.background", "Editor BG"],
+      ["editor.foreground", "Editor FG"],
+      ["activityBar.background", "Activity Bar"],
+      ["statusBar.background", "Status Bar"],
+      ["titleBar.activeBackground", "Title Bar"],
+      ["button.background", "Accent"],
+      ["terminal.ansiRed", "Red"],
+      ["terminal.ansiGreen", "Green"],
+      ["terminal.ansiYellow", "Yellow"],
+      ["terminal.ansiBlue", "Blue"],
+      ["terminal.ansiMagenta", "Magenta"],
+      ["terminal.ansiCyan", "Cyan"],
+    ];
+    const swatches = swatchKeys
+      .filter(([k]) => c[k])
+      .map(([k, label]) => ({ color: c[k], label }));
+    if (!swatches.length) {
+      vscode.window.showWarningMessage(
+        "✦ Horizon: No recognizable colors were found in this theme.",
+      );
+      return;
+    }
+
+    const cellW = 160,
+      cellH = 110,
+      cols = 4,
+      headerH = 46;
+    const rows = Math.ceil(swatches.length / cols);
+    const width = cellW * cols,
+      height = headerH + cellH * rows;
+    const bg = c["editor.background"] || "#1c2330";
+    const fg = c["editor.foreground"] || "#ffffff";
+
+    let svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">`;
+    svg += `<rect width="100%" height="100%" fill="${bg}"/>`;
+    svg += `<text x="16" y="30" font-family="sans-serif" font-size="20" fill="${fg}">${themeDef.label}</text>`;
+    swatches.forEach((s, i) => {
+      const col = i % cols,
+        row = Math.floor(i / cols);
+      const x = col * cellW,
+        y = headerH + row * cellH;
+      svg += `<rect x="${x + 10}" y="${y + 8}" width="${cellW - 20}" height="${
+        cellH - 32
+      }" rx="8" fill="${s.color}" stroke="${fg}" stroke-opacity="0.15"/>`;
+      svg += `<text x="${x + 10}" y="${y + cellH - 10}" font-family="sans-serif" font-size="12" fill="${fg}">${
+        s.label
+      } — ${s.color}</text>`;
+    });
+    svg += `</svg>`;
+
+    const uri = await vscode.window.showSaveDialog({
+      defaultUri: vscode.Uri.file(
+        `${themeDef.label.replace(/[^\w-]+/g, "_")}-palette.svg`,
+      ),
+      filters: { "SVG Image": ["svg"] },
+    });
+    if (!uri) return;
+    await vscode.workspace.fs.writeFile(uri, te.encode(svg));
+    vscode.window.showInformationMessage(
+      `✦ Horizon: Palette exported to ${uri.path.split("/").pop()}`,
+    );
+  } catch (e) {
+    vscode.window.showErrorMessage("✦ Horizon: " + e.message);
+  }
+}
+
+// ══════════════════════════════════════════════
 // HORIZON TAGS CONFIG
 // ══════════════════════════════════════════════
-const supportedLanguages = vscode.workspace
-  .getConfiguration("horizonTags")
-  .get("supportedLanguages");
-const denylistTags = vscode.workspace
-  .getConfiguration("horizonTags")
-  .get("denylistTags");
-const allowEverywhere = vscode.workspace
-  .getConfiguration("horizonTags")
-  .get("allowEverywhere");
-const tagColorList = vscode.workspace
-  .getConfiguration("horizonTags")
-  .get("colors");
-const colorStyle = vscode.workspace
-  .getConfiguration("horizonTags")
-  .get("hightlightType");
+// ══════════════════════════════════════════════
+// CACHED CONFIG — read once, invalidated on change
+// ══════════════════════════════════════════════
+let _cfg = null;
+function getTagsConfig() {
+  if (_cfg) return _cfg;
+  const c = vscode.workspace.getConfiguration("horizonTags");
+  const denylist = c.get("denylistTags") || [];
+  _cfg = {
+    supportedLanguages: c.get("supportedLanguages") || [],
+    denylistTags: denylist,
+    tagColorList: c.get("colors") || [],
+    colorStyle: c.get("hightlightType") || "color",
+    allowEverywhere: c.get("allowEverywhere") || false,
+    denylistTagsFormattedEndings: denylist.map((t) => `</${t}>`),
+    denylistTagsFormattedBeginnings: denylist.map((t) => `<${t}>`),
+    denylistTagsFormattedBeginningsWithWhitespaces: denylist.map(
+      (t) => `<${t} `,
+    ),
+    denylistTagsFormattedBeginningsWithLinebreaks: denylist.map((t) => `<${t}`),
+  };
+  return _cfg;
+}
+function invalidateTagsConfig() {
+  _cfg = null;
+}
 
-const denylistTagsFormattedEndings = denylistTags.map((t) => `</${t}>`);
-const denylistTagsFormattedBeginnings = denylistTags.map((t) => `<${t}>`);
-const denylistTagsFormattedBeginningsWithWhitespaces = denylistTags.map(
-  (t) => `<${t} `,
-);
-const denylistTagsFormattedBeginningsWithLinebreaks = denylistTags.map(
-  (t) => `<${t}`,
-);
+// Legacy aliases so existing references keep working (will remove in next refactor)
+const supportedLanguages = (() => ({
+  get: () => getTagsConfig().supportedLanguages,
+}))();
+const denylistTags = (() => getTagsConfig().denylistTags)();
+const tagColorList = (() => getTagsConfig().tagColorList)();
+const colorStyle = (() => getTagsConfig().colorStyle)();
+const denylistTagsFormattedEndings = (() =>
+  getTagsConfig().denylistTagsFormattedEndings)();
+const denylistTagsFormattedBeginnings = (() =>
+  getTagsConfig().denylistTagsFormattedBeginnings)();
+const denylistTagsFormattedBeginningsWithWhitespaces = (() =>
+  getTagsConfig().denylistTagsFormattedBeginningsWithWhitespaces)();
+const denylistTagsFormattedBeginningsWithLinebreaks = (() =>
+  getTagsConfig().denylistTagsFormattedBeginningsWithLinebreaks)();
 
 const isolatedRightBracketsDecorationTypes =
   vscode.window.createTextEditorDecorationType({ color: "#e2041b" });
 const tagDecoratorList = [];
+
+// ══════════════════════════════════════════════
+// STATUS BAR ITEMS
+// ══════════════════════════════════════════════
+// Quick theme switcher — click to pick a Horizon theme without opening the sidebar.
+const themeStatusBarItem = vscode.window.createStatusBarItem(
+  vscode.StatusBarAlignment.Right,
+  100,
+);
+themeStatusBarItem.text = "✦ Horizon";
+themeStatusBarItem.tooltip = "Horizon: Quick switch theme";
+themeStatusBarItem.command = "horizonTheme.quickSwitch";
+
+// Tag-pair counter — shows how many matched tag pairs Horizon Tags found
+// in the active editor, click to toggle highlighting everywhere.
+const tagCountStatusBarItem = vscode.window.createStatusBarItem(
+  vscode.StatusBarAlignment.Right,
+  99,
+);
+tagCountStatusBarItem.command = "horizonTheme.toggleTagsEverywhere";
 
 function isLanguageUsed(e, id) {
   return (
@@ -181,21 +450,7 @@ function isLanguageUsed(e, id) {
 let schedulerInterval = null;
 function startScheduler(context) {
   if (schedulerInterval) clearInterval(schedulerInterval);
-  const check = () => {
-    const c = vscode.workspace.getConfiguration("horizonTheme");
-    if (!c.get("scheduler.enabled")) return;
-    const dt = c.get("scheduler.dayTheme"),
-      nt = c.get("scheduler.nightTheme");
-    if (!dt || !nt) return;
-    const now = new Date(),
-      mm = now.getHours() * 60 + now.getMinutes();
-    const [dh, dm] = (c.get("scheduler.dayStart") || "08:00")
-      .split(":")
-      .map(Number);
-    const [nh, nm] = (c.get("scheduler.nightStart") || "20:00")
-      .split(":")
-      .map(Number);
-    const target = mm >= dh * 60 + dm && mm < nh * 60 + nm ? dt : nt;
+  const applyTheme = (target) => {
     const cur = vscode.workspace
       .getConfiguration("workbench")
       .get("colorTheme");
@@ -208,11 +463,47 @@ function startScheduler(context) {
           vscode.ConfigurationTarget.Global,
         );
   };
+  const check = () => {
+    const c = vscode.workspace.getConfiguration("horizonTheme");
+    if (!c.get("scheduler.enabled")) return;
+    const dt = c.get("scheduler.dayTheme"),
+      nt = c.get("scheduler.nightTheme");
+    if (!dt || !nt) return;
+
+    // "Follow System Appearance" — switch based on the OS/editor light vs
+    // dark mode instead of a fixed daily schedule.
+    if (c.get("scheduler.followSystem")) {
+      const kind = vscode.window.activeColorTheme.kind;
+      const isLight = kind === vscode.ColorThemeKind.Light;
+      applyTheme(isLight ? dt : nt);
+      return;
+    }
+
+    const now = new Date(),
+      mm = now.getHours() * 60 + now.getMinutes();
+    const [dh, dm] = (c.get("scheduler.dayStart") || "08:00")
+      .split(":")
+      .map(Number);
+    const [nh, nm] = (c.get("scheduler.nightStart") || "20:00")
+      .split(":")
+      .map(Number);
+    const target = mm >= dh * 60 + dm && mm < nh * 60 + nm ? dt : nt;
+    applyTheme(target);
+  };
   check();
   schedulerInterval = setInterval(check, 60000);
   context.subscriptions.push({
     dispose: () => clearInterval(schedulerInterval),
   });
+  // React immediately when the OS appearance changes (light/dark switch),
+  // rather than waiting for the next 60s poll.
+  context.subscriptions.push(
+    vscode.window.onDidChangeActiveColorTheme(() => {
+      const c = vscode.workspace.getConfiguration("horizonTheme");
+      if (c.get("scheduler.enabled") && c.get("scheduler.followSystem"))
+        check();
+    }),
+  );
 }
 
 // ══════════════════════════════════════════════
@@ -220,6 +511,21 @@ function startScheduler(context) {
 // ══════════════════════════════════════════════
 async function checkWhatsNew(context) {
   const last = context.globalState.get("horizonLastVersion");
+  if (last === undefined) {
+    // First install — offer the interactive walkthrough instead of the changelog.
+    await context.globalState.update("horizonLastVersion", EXTENSION_VERSION);
+    const a = await vscode.window.showInformationMessage(
+      "✦ Welcome to Horizon Themes! Want a quick tour of themes, icons & tags?",
+      "Take the Tour",
+      "Dismiss",
+    );
+    if (a === "Take the Tour")
+      vscode.commands.executeCommand(
+        "workbench.action.openWalkthrough",
+        `${EXTENSION_ID}#horizonWelcome`,
+      );
+    return;
+  }
   if (last !== EXTENSION_VERSION) {
     await context.globalState.update("horizonLastVersion", EXTENSION_VERSION);
     const a = await vscode.window.showInformationMessage(
@@ -273,11 +579,14 @@ function sendConfigToWebview(webview) {
     bracketPairs: ec.get("bracketPairColorization.enabled") ?? true,
     scheduler: {
       enabled: hc.get("scheduler.enabled") || false,
+      followSystem: hc.get("scheduler.followSystem") || false,
       dayTheme: hc.get("scheduler.dayTheme") || "horizon-core.modern-light",
       nightTheme: hc.get("scheduler.nightTheme") || "horizon-core.deep-blue",
       dayStart: hc.get("scheduler.dayStart") || "08:00",
       nightStart: hc.get("scheduler.nightStart") || "20:00",
     },
+    focusModeTheme: hc.get("focusModeTheme") || "",
+    zenModeTheme: hc.get("zenModeTheme") || "",
   });
 }
 
@@ -305,6 +614,7 @@ class HorizonSettingsProvider {
       switch (m.command) {
         case "setTheme":
           this._previewOrig = null;
+
           await vscode.workspace
             .getConfiguration()
             .update(
@@ -380,6 +690,11 @@ class HorizonSettingsProvider {
             vscode.ConfigurationTarget.Global,
           );
           await cfg.update(
+            "scheduler.followSystem",
+            !!m.followSystem,
+            vscode.ConfigurationTarget.Global,
+          );
+          await cfg.update(
             "scheduler.dayTheme",
             m.dayTheme,
             vscode.ConfigurationTarget.Global,
@@ -442,6 +757,7 @@ class HorizonSettingsProvider {
             },
             scheduler: {
               enabled: hc.get("scheduler.enabled"),
+              followSystem: hc.get("scheduler.followSystem"),
               dayTheme: hc.get("scheduler.dayTheme"),
               nightTheme: hc.get("scheduler.nightTheme"),
               dayStart: hc.get("scheduler.dayStart"),
@@ -489,7 +805,7 @@ class HorizonSettingsProvider {
           });
           if (!uris?.[0]) break;
           try {
-            const data = JSON.parse(
+            const data = jsonc.parse(
               td.decode(await vscode.workspace.fs.readFile(uris[0])),
             );
             const wc = vscode.workspace.getConfiguration();
@@ -606,6 +922,12 @@ class HorizonSettingsProvider {
           }
           break;
         }
+        case "pickFont":
+          vscode.commands.executeCommand("horizonTheme.pickFont");
+          break;
+        case "clearWorkspaceAccent":
+          vscode.commands.executeCommand("horizonTheme.clearWorkspaceAccent");
+          break;
         case "resetSettings": {
           const ok = await vscode.window.showWarningMessage(
             "Reset ALL Horizon settings to defaults?",
@@ -667,16 +989,16 @@ class HorizonSettingsProvider {
 // ══════════════════════════════════════════════
 // ACTIVATE
 // ══════════════════════════════════════════════
-function activate(context) {
+async function activate(context) {
   const wc = vscode.workspace.getConfiguration();
   const cur = wc.get("workbench.colorTheme");
   if (!cur || cur === "Default Dark+" || cur === "Default Dark Modern") {
-    wc.update(
+    await wc.update(
       "workbench.colorTheme",
       "horizon-core.deep-blue",
       vscode.ConfigurationTarget.Global,
     );
-    wc.update(
+    await wc.update(
       "workbench.iconTheme",
       "Horizon Icons",
       vscode.ConfigurationTarget.Global,
@@ -684,6 +1006,15 @@ function activate(context) {
   }
 
   checkWhatsNew(context);
+  checkRatePrompt(context);
+
+  // Tag Summary sidebar tree view
+  context.subscriptions.push(
+    vscode.window.registerTreeDataProvider(
+      "horizonTheme.tagSummary",
+      tagSummaryProvider,
+    ),
+  );
 
   const provider = new HorizonSettingsProvider(context.extensionUri, context);
   globalProvider = provider;
@@ -700,21 +1031,283 @@ function activate(context) {
       vscode.commands.executeCommand(
         "workbench.view.extension.horizon-sidebar",
       ),
-    "horizonTheme.exportSettings": () =>
-      globalProvider?._view?.webview.postMessage({ command: "triggerExport" }),
-    "horizonTheme.importSettings": () =>
-      globalProvider?._view?.webview.postMessage({ command: "triggerImport" }),
-    "horizonTheme.resetSettings": () =>
-      globalProvider?._view?.webview.postMessage({ command: "triggerReset" }),
-    "horizonTheme.randomTheme": () =>
-      globalProvider?._view?.webview.postMessage({ command: "triggerRandom" }),
+    "horizonTheme.exportSettings": async () => {
+      if (!globalProvider?._view) {
+        await vscode.commands.executeCommand(
+          "workbench.view.extension.horizon-sidebar",
+        );
+        await new Promise((r) => setTimeout(r, 400));
+      }
+      globalProvider?._view?.webview.postMessage({ command: "triggerExport" });
+    },
+    "horizonTheme.importSettings": async () => {
+      if (!globalProvider?._view) {
+        await vscode.commands.executeCommand(
+          "workbench.view.extension.horizon-sidebar",
+        );
+        await new Promise((r) => setTimeout(r, 400));
+      }
+      globalProvider?._view?.webview.postMessage({ command: "triggerImport" });
+    },
+    "horizonTheme.resetSettings": async () => {
+      if (!globalProvider?._view) {
+        await vscode.commands.executeCommand(
+          "workbench.view.extension.horizon-sidebar",
+        );
+        await new Promise((r) => setTimeout(r, 400));
+      }
+      globalProvider?._view?.webview.postMessage({ command: "triggerReset" });
+    },
+    "horizonTheme.randomTheme": async () => {
+      if (!globalProvider?._view) {
+        await vscode.commands.executeCommand(
+          "workbench.view.extension.horizon-sidebar",
+        );
+        await new Promise((r) => setTimeout(r, 400));
+      }
+      globalProvider?._view?.webview.postMessage({ command: "triggerRandom" });
+    },
+    "horizonTheme.quickSwitch": async () => {
+      const cur = vscode.workspace
+        .getConfiguration("workbench")
+        .get("colorTheme");
+      const items = HORIZON_THEMES.map((id) => ({
+        label: `${id === cur ? "$(check) " : ""}${themeLabel(id)}`,
+        description: id,
+        id,
+      }));
+      const pick = await vscode.window.showQuickPick(items, {
+        title: "✦ Horizon — Quick Switch Theme",
+        placeHolder: "Select a theme",
+        matchOnDescription: true,
+      });
+      if (pick)
+        await vscode.workspace
+          .getConfiguration()
+          .update(
+            "workbench.colorTheme",
+            pick.id,
+            vscode.ConfigurationTarget.Global,
+          );
+    },
+    "horizonTheme.pickIcon": () => pickHorizonIcon(),
+    "horizonTheme.toggleTagsEverywhere": async () => {
+      const cfg = vscode.workspace.getConfiguration("horizonTags");
+      const next = !cfg.get("allowEverywhere");
+      await cfg.update(
+        "allowEverywhere",
+        next,
+        vscode.ConfigurationTarget.Global,
+      );
+      vscode.window.showInformationMessage(
+        `✦ Horizon Tags: highlighting ${
+          next
+            ? "enabled for all file types"
+            : "restricted to supported languages"
+        }.`,
+      );
+      horizonTags(vscode.window.activeTextEditor);
+    },
+    "horizonTheme.exportPalette": () => exportThemePalette(),
+    "horizonTheme.setWorkspaceTheme": async () => {
+      if (!vscode.workspace.workspaceFolders?.length) {
+        vscode.window.showWarningMessage(
+          "✦ Horizon: Open a folder or workspace first to set a project-specific theme.",
+        );
+        return;
+      }
+      const cur = vscode.workspace
+        .getConfiguration("workbench")
+        .get("colorTheme");
+      const items = HORIZON_THEMES.map((id) => ({
+        label: `${id === cur ? "$(check) " : ""}${themeLabel(id)}`,
+        description: id,
+        id,
+      }));
+      const pick = await vscode.window.showQuickPick(items, {
+        title: "✦ Horizon — Theme for This Workspace",
+        placeHolder:
+          "This theme will apply only when this folder/workspace is open",
+        matchOnDescription: true,
+      });
+      if (!pick) return;
+      await vscode.workspace
+        .getConfiguration()
+        .update(
+          "workbench.colorTheme",
+          pick.id,
+          vscode.ConfigurationTarget.Workspace,
+        );
+      vscode.window.showInformationMessage(
+        `✦ Horizon: '${themeLabel(pick.id)}' set for this workspace.`,
+      );
+    },
+    "horizonTheme.setWorkspaceAccent": async () => {
+      if (!vscode.workspace.workspaceFolders?.length) {
+        vscode.window.showWarningMessage(
+          "✦ Horizon: Open a folder or workspace first.",
+        );
+        return;
+      }
+      const input = await vscode.window.showInputBox({
+        title: "✦ Horizon — Workspace Accent Color",
+        placeHolder: "#9d4edd",
+        prompt:
+          "Enter a hex color to tint the title bar, activity bar & status bar for this workspace only",
+        validateInput: (v) =>
+          /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test((v || "").trim())
+            ? null
+            : "Enter a valid hex color (e.g. #9d4edd)",
+      });
+      if (!input) return;
+      const hex = input.trim();
+      const wcfg = vscode.workspace.getConfiguration();
+      const cc = wcfg.get("workbench.colorCustomizations") || {};
+      const next = {
+        ...cc,
+        "titleBar.activeBackground": hex,
+        "titleBar.activeForeground": "#ffffff",
+        "activityBar.background": hex,
+        "activityBar.foreground": "#ffffff",
+        "statusBar.background": hex,
+        "statusBar.foreground": "#ffffff",
+      };
+      await wcfg.update(
+        "workbench.colorCustomizations",
+        next,
+        vscode.ConfigurationTarget.Workspace,
+      );
+      vscode.window.showInformationMessage(
+        `✦ Horizon: Workspace accent color set to ${hex}.`,
+      );
+    },
+    "horizonTheme.copyColors": () => copyThemeColors(),
+    "horizonTheme.refreshTagSummary": () => tagSummaryProvider.refresh(),
+    "horizonTheme.jumpToTag": async (uri, line, char) => {
+      const doc = await vscode.workspace.openTextDocument(uri);
+      const editor = await vscode.window.showTextDocument(doc);
+      const pos = new vscode.Position(line, char);
+      editor.selection = new vscode.Selection(pos, pos);
+      editor.revealRange(
+        new vscode.Range(pos, pos),
+        vscode.TextEditorRevealType.InCenter,
+      );
+    },
+    "horizonTheme.pickFont": async () => {
+      // Popular coding fonts — user can also type any family name.
+      const FONTS = [
+        "JetBrains Mono",
+        "Fira Code",
+        "Cascadia Code",
+        "Source Code Pro",
+        "Hack",
+        "Inconsolata",
+        "Consolas",
+        "Courier New",
+        "IBM Plex Mono",
+        "Roboto Mono",
+        "Ubuntu Mono",
+        "Anonymous Pro",
+        "Input Mono",
+        "Monaspace Neon",
+        "Monaspace Argon",
+        "Monaspace Xenon",
+        "Comic Mono",
+        "Victor Mono",
+        "Geist Mono",
+        "Maple Mono",
+      ];
+      const cur =
+        vscode.workspace.getConfiguration("editor").get("fontFamily") || "";
+      const items = [
+        { label: "$(pencil) Type a custom font name…", id: "__custom__" },
+        ...FONTS.map((f) => ({
+          label: `${cur.includes(f) ? "$(check) " : ""}${f}`,
+          description: cur.includes(f) ? "current" : "",
+          id: f,
+        })),
+      ];
+      const pick = await vscode.window.showQuickPick(items, {
+        title: "✦ Horizon — Choose Editor Font",
+        placeHolder: `Current: ${cur || "default"}`,
+        matchOnDescription: true,
+      });
+      if (!pick) return;
+      let fontName = pick.id;
+      if (fontName === "__custom__") {
+        fontName = await vscode.window.showInputBox({
+          title: "✦ Horizon — Custom Font Family",
+          placeHolder: "e.g. 'My Font', monospace",
+          value: cur,
+          prompt: "Enter the CSS font-family value to use in the editor",
+        });
+        if (!fontName) return;
+      }
+      await vscode.workspace
+        .getConfiguration()
+        .update(
+          "editor.fontFamily",
+          fontName,
+          vscode.ConfigurationTarget.Global,
+        );
+      const ligPick = await vscode.window.showInformationMessage(
+        `✦ Horizon: Font set to "${fontName}". Enable ligatures?`,
+        "Yes",
+        "No",
+      );
+      if (ligPick === "Yes")
+        await vscode.workspace
+          .getConfiguration()
+          .update(
+            "editor.fontLigatures",
+            true,
+            vscode.ConfigurationTarget.Global,
+          );
+      else if (ligPick === "No")
+        await vscode.workspace
+          .getConfiguration()
+          .update(
+            "editor.fontLigatures",
+            false,
+            vscode.ConfigurationTarget.Global,
+          );
+    },
+    "horizonTheme.clearWorkspaceAccent": async () => {
+      if (!vscode.workspace.workspaceFolders?.length) return;
+      const wcfg = vscode.workspace.getConfiguration();
+      const cc = { ...(wcfg.get("workbench.colorCustomizations") || {}) };
+      [
+        "titleBar.activeBackground",
+        "titleBar.activeForeground",
+        "activityBar.background",
+        "activityBar.foreground",
+        "statusBar.background",
+        "statusBar.foreground",
+      ].forEach((k) => delete cc[k]);
+      await wcfg.update(
+        "workbench.colorCustomizations",
+        Object.keys(cc).length ? cc : undefined,
+        vscode.ConfigurationTarget.Workspace,
+      );
+      vscode.window.showInformationMessage(
+        "✦ Horizon: Workspace accent color cleared.",
+      );
+    },
   };
   for (const [id, fn] of Object.entries(cmds))
     context.subscriptions.push(vscode.commands.registerCommand(id, fn));
 
+  context.subscriptions.push(themeStatusBarItem, tagCountStatusBarItem);
+  themeStatusBarItem.show();
+
   startScheduler(context);
 
-  vscode.workspace.onDidChangeConfiguration(() => {
+  vscode.workspace.onDidChangeConfiguration((e) => {
+    if (e.affectsConfiguration("horizonTags")) {
+      invalidateTagsConfig();
+      invalidateTagRemoverRe();
+      _tagCache.clear();
+    }
     const nc = vscode.workspace.getConfiguration("horizonTags").get("colors");
     if (
       !(
@@ -724,6 +1317,64 @@ function activate(context) {
     )
       vscode.commands.executeCommand("workbench.action.reloadWindow");
   });
+
+  // Focus / Zen Mode theme switching
+  vscode.window.onDidChangeWindowState(
+    (state) => {
+      const hc = vscode.workspace.getConfiguration("horizonTheme");
+      const focusTheme = hc.get("focusModeTheme");
+      if (!focusTheme) return;
+      const wc = vscode.workspace.getConfiguration();
+      if (!state.focused) {
+        wc.update(
+          "workbench.colorTheme",
+          focusTheme,
+          vscode.ConfigurationTarget.Global,
+        );
+      } else {
+        const prev = hc.get("_preFocusTheme");
+        if (prev)
+          wc.update(
+            "workbench.colorTheme",
+            prev,
+            vscode.ConfigurationTarget.Global,
+          );
+      }
+    },
+    null,
+    context.subscriptions,
+  );
+
+  // Zen mode theme switching via window state change (avoids overriding built-in command)
+  let _inZenMode = false;
+  context.subscriptions.push(
+    vscode.window.onDidChangeWindowState(async (state) => {
+      const hc = vscode.workspace.getConfiguration("horizonTheme");
+      const zenTheme = hc.get("zenModeTheme");
+      if (!zenTheme) return;
+      const isZen = !!state.active; // active = false when zen mode hides UI
+      if (isZen === _inZenMode) return;
+      _inZenMode = isZen;
+      const wc = vscode.workspace.getConfiguration();
+      if (isZen) {
+        const cur = wc.get("workbench.colorTheme");
+        await hc.update("_preZenTheme", cur, vscode.ConfigurationTarget.Global);
+        await wc.update(
+          "workbench.colorTheme",
+          zenTheme,
+          vscode.ConfigurationTarget.Global,
+        );
+      } else {
+        const prev = hc.get("_preZenTheme");
+        if (prev)
+          await wc.update(
+            "workbench.colorTheme",
+            prev,
+            vscode.ConfigurationTarget.Global,
+          );
+      }
+    }),
+  );
 
   tagDecoratorList.length = 0;
   for (let i in tagColorList) {
@@ -752,10 +1403,11 @@ function activate(context) {
     null,
     context.subscriptions,
   );
+  const debouncedHorizonTags = debounce(horizonTags, 200);
   vscode.workspace.onDidChangeTextDocument(
     (e) => {
       const ae = vscode.window.activeTextEditor;
-      if (ae && e.document === ae.document) horizonTags(ae);
+      if (ae && e.document === ae.document) debouncedHorizonTags(ae);
     },
     null,
     context.subscriptions,
@@ -767,6 +1419,216 @@ function activate(context) {
     applyHorizonIcons(ci).catch((e) =>
       vscode.window.showErrorMessage(e.message),
     );
+  }
+}
+
+// ══════════════════════════════════════════════
+// DEBOUNCE UTILITY
+// ══════════════════════════════════════════════
+function debounce(fn, ms) {
+  let t;
+  return (...args) => {
+    clearTimeout(t);
+    t = setTimeout(() => fn(...args), ms);
+  };
+}
+
+// ══════════════════════════════════════════════
+// TAG SUMMARY TREE VIEW
+// ══════════════════════════════════════════════
+// A sidebar tree that lists every matched Horizon Tag pair found across
+// all open editors, grouped by file. Clicking an item jumps to the tag.
+class TagSummaryItem extends vscode.TreeItem {
+  constructor(label, opts = {}) {
+    super(label, opts.collapsible ?? vscode.TreeItemCollapsibleState.None);
+    if (opts.uri) this.resourceUri = opts.uri;
+    if (opts.line != null) {
+      this.command = {
+        command: "horizonTheme.jumpToTag",
+        title: "Jump to tag",
+        arguments: [opts.uri, opts.line, opts.char ?? 0],
+      };
+      this.description = `line ${opts.line + 1}`;
+      this.iconPath = new vscode.ThemeIcon("symbol-color");
+    } else {
+      this.iconPath = new vscode.ThemeIcon("file-code");
+    }
+    this.tooltip = opts.tooltip ?? label;
+  }
+}
+
+class TagSummaryProvider {
+  constructor() {
+    this._onChange = new vscode.EventEmitter();
+    this.onDidChangeTreeData = this._onChange.event;
+    // Map<string fsPath, {uri, pairs: [{line,char,text}]}>
+    this._data = new Map();
+  }
+  refresh() {
+    this._onChange.fire();
+  }
+  updateFile(uri, pairs) {
+    if (!pairs.length) {
+      this._data.delete(uri.fsPath || uri.toString());
+    } else {
+      this._data.set(uri.fsPath || uri.toString(), { uri, pairs });
+    }
+    this._onChange.fire();
+  }
+  clearFile(uri) {
+    this._data.delete(uri.fsPath || uri.toString());
+    this._onChange.fire();
+  }
+  getTreeItem(el) {
+    return el;
+  }
+  getChildren(el) {
+    if (!el) {
+      // Root — one node per file that has tags
+      if (!this._data.size)
+        return [
+          new TagSummaryItem("No Horizon Tags found in open editors", {
+            tooltip: "Open a file with matched tag pairs",
+          }),
+        ];
+      return [...this._data.values()].map(({ uri, pairs }) => {
+        const item = new TagSummaryItem(uri.path.split("/").pop(), {
+          collapsible: vscode.TreeItemCollapsibleState.Expanded,
+          uri,
+          tooltip: uri.fsPath || uri.path,
+        });
+        item._pairs = pairs;
+        item._uri = uri;
+        return item;
+      });
+    }
+    // Children — individual tag pairs
+    if (el._pairs) {
+      return el._pairs.map(
+        (p) =>
+          new TagSummaryItem(p.text, {
+            uri: el._uri,
+            line: p.line,
+            char: p.char,
+            tooltip: `${p.text} — line ${p.line + 1}`,
+          }),
+      );
+    }
+    return [];
+  }
+}
+
+const tagSummaryProvider = new TagSummaryProvider();
+
+// ══════════════════════════════════════════════
+// COPY THEME COLORS TO CLIPBOARD
+// ══════════════════════════════════════════════
+async function copyThemeColors() {
+  try {
+    const themeId = vscode.workspace
+      .getConfiguration("workbench")
+      .get("colorTheme");
+    const ext = vscode.extensions.getExtension(EXTENSION_ID);
+    const themeDef = (ext.packageJSON.contributes?.themes || []).find(
+      (t) => t.id === themeId || t.label === themeId,
+    );
+    if (!themeDef) {
+      vscode.window.showWarningMessage(
+        `✦ Horizon: '${themeId}' isn't a Horizon theme.`,
+      );
+      return;
+    }
+    const themeUri = vscode.Uri.joinPath(ext.extensionUri, themeDef.path);
+    let themeContent = td.decode(await vscode.workspace.fs.readFile(themeUri));
+    if (themeContent.charCodeAt(0) === 0xfeff) {
+      themeContent = themeContent.slice(1);
+    }
+    const themeJson = jsonc.parse(themeContent);
+    const colors = themeJson.colors || {};
+    const tokenColors = themeJson.tokenColors || [];
+
+    const formats = [
+      { label: "$(json) JSON — workbench colors", id: "json" },
+      { label: "$(symbol-color) CSS Variables", id: "css" },
+      { label: "$(list-flat) Plain list (name: value)", id: "list" },
+    ];
+    const pick = await vscode.window.showQuickPick(formats, {
+      title: `✦ Horizon — Copy colors from "${themeDef.label}"`,
+    });
+    if (!pick) return;
+
+    let text = "";
+    if (pick.id === "json") {
+      text = JSON.stringify(colors, null, 2);
+    } else if (pick.id === "css") {
+      text =
+        ":root {\n" +
+        Object.entries(colors)
+          .map(([k, v]) => `  --${k.replace(/\./g, "-")}: ${v};`)
+          .join("\n") +
+        "\n}";
+    } else {
+      text = Object.entries(colors)
+        .map(([k, v]) => `${k}: ${v}`)
+        .join("\n");
+    }
+    await vscode.env.clipboard.writeText(text);
+    vscode.window.showInformationMessage(
+      `✦ Horizon: Colors from "${themeDef.label}" copied to clipboard (${
+        Object.keys(colors).length
+      } values).`,
+    );
+  } catch (e) {
+    vscode.window.showErrorMessage("✦ Horizon: " + e.message);
+  }
+}
+
+// ══════════════════════════════════════════════
+// RATE & REVIEW PROMPT
+// ══════════════════════════════════════════════
+// Shows a one-time "Enjoying Horizon? Leave a review" nudge after the
+// user has been using the extension for a while (7 days + 50 activations).
+async function checkRatePrompt(context) {
+  const state = context.globalState;
+  // Don't show if already rated or dismissed permanently
+  if (state.get("horizonRated") || state.get("horizonRateDismissed")) return;
+
+  const installDate = state.get("horizonInstallDate") || Date.now();
+  if (!state.get("horizonInstallDate"))
+    await state.update("horizonInstallDate", installDate);
+
+  const activations = (state.get("horizonActivations") || 0) + 1;
+  await state.update("horizonActivations", activations);
+
+  const daysSinceInstall = (Date.now() - installDate) / (1000 * 60 * 60 * 24);
+
+  // Conditions: at least 7 days old AND at least 50 activations
+  if (daysSinceInstall < 7 || activations < 50) return;
+
+  const answer = await vscode.window.showInformationMessage(
+    "✦ You've been using Horizon Themes for a while — enjoying it? A review on the Marketplace helps a lot! 🙏",
+    "Leave a Review ⭐",
+    "Already Did",
+    "Remind Me Later",
+    "No Thanks",
+  );
+
+  if (answer === "Leave a Review ⭐") {
+    await state.update("horizonRated", true);
+    vscode.env.openExternal(
+      vscode.Uri.parse(
+        "https://marketplace.visualstudio.com/items?itemName=horizon-core.horizon-theme&ssr=false#review-details",
+      ),
+    );
+  } else if (answer === "Already Did") {
+    await state.update("horizonRated", true);
+    vscode.window.showInformationMessage("✦ Horizon: Thank you so much! 💙");
+  } else if (answer === "No Thanks") {
+    await state.update("horizonRateDismissed", true);
+  }
+  // 'Remind Me Later' — reset activations so it asks again after another 50 uses
+  else if (answer === "Remind Me Later") {
+    await state.update("horizonActivations", 0);
   }
 }
 
@@ -879,11 +1741,37 @@ body{font-family:'Raleway',sans-serif;background:var(--bg);color:var(--txt);font
 .hb.l{background:rgba(63,185,80,.08);border-color:rgba(63,185,80,.25);color:var(--green)}
 .hb.y{background:rgba(240,192,64,.08);border-color:rgba(240,192,64,.25);color:var(--gold)}
 
-/* TABS */
-.tabs{display:grid;grid-template-columns:repeat(4,1fr);border-bottom:1px solid var(--brd)}
-.tab{padding:8px 2px;text-align:center;cursor:pointer;font-size:8px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--txt2);border-bottom:2px solid transparent;transition:all .15s;user-select:none}
-.tab:hover{color:var(--a1);background:var(--g1)}.tab.active{color:var(--a1);border-bottom-color:var(--a1);background:var(--g1)}
-.ti{font-size:11px;display:block;margin-bottom:2px}
+/* TABS - New Modern Design */
+.tabs{display:grid;grid-template-columns:repeat(5,1fr);gap:4px;padding:8px 8px 0 8px;background:transparent}
+.tab{padding:8px 4px;text-align:center;cursor:pointer;transition:all .2s cubic-bezier(0.4,0,0.2,1);user-select:none;border-radius:10px;background:var(--bg2);border:1px solid var(--brd);position:relative;overflow:hidden}
+.tab::before{content:'';position:absolute;bottom:0;left:0;right:0;height:2px;background:linear-gradient(90deg,var(--a1),var(--a2),var(--a3));transform:scaleX(0);transition:transform .2s;border-radius:2px}
+.tab:hover::before{transform:scaleX(1)}
+.tab:hover{background:var(--bg3);border-color:var(--a1)}
+.tab.active{background:linear-gradient(135deg,var(--g1),var(--g2));border-color:var(--a1)}
+.tab.active .tab-icon{color:var(--a1);text-shadow:0 0 4px rgba(79,195,247,.5)}
+.tab-icon{font-size:16px;display:block;margin-bottom:3px;transition:all .2s}
+.tab-label{font-size:8px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--txt2)}
+.tab.active .tab-label{color:var(--a1)}
+
+/* COMMANDS PAGE */
+.cmd-cat{font-family:'Cinzel',serif;font-size:8px;font-weight:600;letter-spacing:2px;text-transform:uppercase;color:var(--gold);margin:12px 0 6px;padding-top:3px;border-top:1px solid var(--brd2)}
+.cmd-cat:first-of-type{margin-top:0;border-top:none;padding-top:0}
+.cmd-item{background:var(--bg2);border:1px solid var(--brd);border-radius:8px;padding:8px 10px;margin-bottom:6px;transition:all .15s;cursor:pointer;position:relative;overflow:hidden}
+.cmd-item::after{content:'📋';position:absolute;right:8px;top:50%;transform:translateY(-50%);font-size:10px;opacity:0;transition:opacity .2s;color:var(--a1)}
+.cmd-item:hover{border-color:var(--a1);background:var(--bg3);transform:translateX(2px)}
+.cmd-item:hover::after{opacity:0.6}
+.cmd-name{font-family:'Courier New',monospace;font-size:9px;font-weight:600;color:var(--a1);margin-bottom:3px;letter-spacing:-.2px;padding-right:20px}
+.cmd-desc{font-size:8.5px;color:var(--txt);margin-bottom:3px;line-height:1.4}
+.cmd-shortcut{font-size:7px;color:var(--txt2);display:flex;align-items:center;gap:4px}
+.cmd-shortcut::before{content:'▶';color:var(--gold);font-size:6px}
+.cmd-tip{background:linear-gradient(135deg,var(--g1),var(--g2));border:1px solid rgba(79,195,247,.2);border-radius:8px;padding:8px 10px;margin-top:12px;display:flex;gap:8px;align-items:flex-start}
+.tip-icon{font-size:14px;flex-shrink:0}
+.tip-text{font-size:8.5px;color:var(--txt);line-height:1.5}
+kbd{background:var(--bg3);border:1px solid var(--brd);border-radius:4px;padding:2px 6px;font-size:7px;font-family:monospace}
+
+/* Toast notification for copy */
+.copy-toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--a1);color:#0d1117;padding:6px 12px;border-radius:20px;font-size:10px;font-weight:600;z-index:1000;animation:fadeOut 1.5s ease forwards;box-shadow:0 4px 12px rgba(0,0,0,.3)}
+@keyframes fadeOut{0%{opacity:1;transform:translateX(-50%) translateY(0)}70%{opacity:1}100%{opacity:0;transform:translateX(-50%) translateY(-10px)}}
 
 /* PANELS */
 .panel{display:none;padding:12px 10px}
@@ -994,6 +1882,7 @@ body{font-family:'Raleway',sans-serif;background:var(--bg);color:var(--txt);font
 .cll{list-style:none}.cll li{font-size:9px;color:var(--txt2);padding:1.5px 0;display:flex;gap:4px}
 .cll li::before{content:'▸';color:var(--a1);flex-shrink:0;font-size:7px;margin-top:1.5px}
 
+
 /* ABOUT */
 .abh{background:linear-gradient(135deg,rgba(79,195,247,.06),rgba(233,30,140,.06));border:1px solid var(--brd);border-radius:9px;padding:14px 10px;text-align:center;margin-bottom:10px;position:relative;overflow:hidden}
 .abav{width:46px;height:46px;border-radius:50%;margin:0 auto 6px;background:linear-gradient(135deg,#4fc3f7,#e91e8c,#a78bfa);display:flex;align-items:center;justify-content:center;font-family:'Cinzel',serif;font-size:16px;font-weight:700;color:#fff;box-shadow:0 0 16px rgba(79,195,247,.25)}
@@ -1042,7 +1931,7 @@ body{font-family:'Raleway',sans-serif;background:var(--bg);color:var(--txt);font
   <div class="ht">Horizon Themes</div>
   <div class="hs">Ultimate Edition · Hoyoverse Collection</div>
   <div class="hbadges">
-    <span class="hb v">v3.6.1</span>
+    <span class="hb v">v3.9.0</span>
     <span class="hb l">MIT License</span>
     <span class="hb y">© 2026 Abdelrahman</span>
   </div>
@@ -1050,10 +1939,26 @@ body{font-family:'Raleway',sans-serif;background:var(--bg);color:var(--txt);font
 
 <!-- TABS -->
 <div class="tabs">
-  <div class="tab active" onclick="swTab('themes',this)"><span class="ti">◈</span>Themes</div>
-  <div class="tab" onclick="swTab('settings',this)"><span class="ti">⚙</span>Settings</div>
-  <div class="tab" onclick="swTab('changelog',this)"><span class="ti">📋</span>Changes</div>
-  <div class="tab" onclick="swTab('about',this)"><span class="ti">✦</span>About</div>
+  <div class="tab active" onclick="swTab('themes',this)">
+    <div class="tab-icon">◈</div>
+    <div class="tab-label">Themes</div>
+  </div>
+  <div class="tab" onclick="swTab('settings',this)">
+    <div class="tab-icon">⚙</div>
+    <div class="tab-label">Settings</div>
+  </div>
+  <div class="tab" onclick="swTab('commands',this)">
+    <div class="tab-icon">⌨️</div>
+    <div class="tab-label">Commands</div>
+  </div>
+  <div class="tab" onclick="swTab('changelog',this)">
+    <div class="tab-icon">📋</div>
+    <div class="tab-label">Changes</div>
+  </div>
+  <div class="tab" onclick="swTab('about',this)">
+    <div class="tab-icon">✦</div>
+    <div class="tab-label">About</div>
+  </div>
 </div>
 
 <!-- ════ THEMES ════ -->
@@ -1188,13 +2093,33 @@ body{font-family:'Raleway',sans-serif;background:var(--bg);color:var(--txt);font
   <div class="sec">
     <div class="st">🌅 Theme Scheduler</div>
     <div class="tr2" style="margin-bottom:8px"><div><div class="tl2">Auto Switch Day / Night</div><div class="td3">Changes theme automatically by time</div></div><div class="tog" id="togSch" onclick="this.classList.toggle('on')"></div></div>
-    <div class="sg">
+    <div class="tr2" style="margin-bottom:8px"><div><div class="tl2">Follow System Appearance</div><div class="td3">Match your OS light/dark mode instead of a fixed time</div></div><div class="tog" id="togFollowSys" onclick="toggleFollowSys()"></div></div>
+    <div class="sg" id="schedTimeGroup">
       <div><div class="slb">☀ Day theme</div><select class="sel" id="sday"><option value="horizon-core.modern-light">Modern Light</option><option value="horizon-core.deep-blue">Deep Blue</option><option value="horizon-themes-ganyu-light">Ganyu Light</option><option value="horizon-themes-furina-light">Furina Light</option><option value="horizon-themes-robin-light">Robin Light</option></select></div>
       <div><div class="slb">🌙 Night theme</div><select class="sel" id="snight"><option value="horizon-core.deep-blue">Deep Blue</option><option value="horizon-core.dark-plus">Dark Plus</option><option value="horizon-themes-kafka-dark">Kafka</option><option value="horizon-themes-scaramouche-dark">Scaramouche</option><option value="horizon-themes-skirk-dark">Skirk</option></select></div>
-      <div><div class="slb">☀ Day starts</div><input type="time" class="timp" id="sdayT" value="08:00"></div>
-      <div><div class="slb">🌙 Night starts</div><input type="time" class="timp" id="snightT" value="20:00"></div>
+      <div id="schedDayTimeRow"><div class="slb">☀ Day starts</div><input type="time" class="timp" id="sdayT" value="08:00"></div>
+      <div id="schedNightTimeRow"><div class="slb">🌙 Night starts</div><input type="time" class="timp" id="snightT" value="20:00"></div>
     </div>
     <button class="btn bg" onclick="saveSch()">✦ Save Scheduler</button>
+  </div>
+
+  <div class="sec">
+    <div class="st">🎯 Context Themes</div>
+    <div class="td3" style="margin-bottom:8px">Apply a specific Horizon theme in special VS Code modes.</div>
+    <div><div class="slb">🎯 Focus Mode Theme <span style="font-size:8px;color:var(--txt3)">(when window loses focus)</span></div>
+    <select class="sel" id="focusThmSel" onchange="updS('horizonTheme.focusModeTheme',this.value)">
+      <option value="">— Disabled</option>
+    </select></div>
+    <div style="margin-top:7px"><div class="slb">🧘 Zen Mode Theme <span style="font-size:8px;color:var(--txt3)">(during Zen Mode)</span></div>
+    <select class="sel" id="zenThmSel" onchange="updS('horizonTheme.zenModeTheme',this.value)">
+      <option value="">— Disabled</option>
+    </select></div>
+  </div>
+
+  <div class="sec">
+    <div class="st">🔤 Font Picker</div>
+    <div class="td3" style="margin-bottom:8px">Browse popular coding fonts and set them instantly.</div>
+    <button class="btn bg" onclick="vscode.postMessage({command:'pickFont'})">✦ Choose Editor Font…</button>
   </div>
 
   <div class="sec">
@@ -1202,6 +2127,135 @@ body{font-family:'Raleway',sans-serif;background:var(--bg);color:var(--txt);font
     <button class="btn bn" onclick="doExp()">↑ Export All Settings</button>
     <button class="btn bp" onclick="doImp()">↓ Import Settings</button>
     <button class="btn br" onclick="doRst()">↺ Reset to Defaults</button>
+    <button class="btn" style="margin-top:4px" onclick="vscode.postMessage({command:'clearWorkspaceAccent'})">🎨 Clear Workspace Accent</button>
+  </div>
+</div>
+
+<!-- ════ COMMANDS ════ -->
+<div class="panel" id="panel-commands">
+  <div class="sec">
+    <div class="st">⌨️ Available Commands</div>
+    <div class="td3" style="margin-bottom:12px">All Horizon Themes commands — press <kbd style="background:var(--bg3);padding:2px 6px;border-radius:4px;font-family:monospace">Ctrl+Shift+P</kbd> and type "Horizon" to find them. <strong style="color:var(--a1)">Click any command to copy it!</strong></div>
+    
+    <div class="cmd-cat">🎨 Theme Commands</div>
+    
+    <div class="cmd-item" onclick="copyCmd('horizonTheme.quickSwitch')">
+      <div class="cmd-name">horizonTheme.quickSwitch</div>
+      <div class="cmd-desc">Quickly switch between Horizon themes from the status bar or command palette</div>
+      <div class="cmd-shortcut">Click "✦ Horizon" status bar item</div>
+    </div>
+    
+    <div class="cmd-item" onclick="copyCmd('horizonTheme.randomTheme')">
+      <div class="cmd-name">horizonTheme.randomTheme</div>
+      <div class="cmd-desc">Apply a random Horizon theme from the entire collection</div>
+      <div class="cmd-shortcut">Sidebar → Themes → Random button</div>
+    </div>
+    
+    <div class="cmd-item" onclick="copyCmd('horizonTheme.exportPalette')">
+      <div class="cmd-name">horizonTheme.exportPalette</div>
+      <div class="cmd-desc">Export current theme colors as an SVG image (color swatches)</div>
+      <div class="cmd-shortcut">Great for sharing on social media</div>
+    </div>
+    
+    <div class="cmd-item" onclick="copyCmd('horizonTheme.setWorkspaceTheme')">
+      <div class="cmd-name">horizonTheme.setWorkspaceTheme</div>
+      <div class="cmd-desc">Set a theme for the current workspace only (saves to .vscode/settings.json)</div>
+      <div class="cmd-shortcut">Each project remembers its own theme</div>
+    </div>
+    
+    <div class="cmd-item" onclick="copyCmd('horizonTheme.copyColors')">
+      <div class="cmd-name">horizonTheme.copyColors</div>
+      <div class="cmd-desc">Copy active theme colors to clipboard as JSON, CSS Variables, or plain list</div>
+      <div class="cmd-shortcut">Perfect for theme customization</div>
+    </div>
+    
+    <div class="cmd-cat">🎨 Accent &amp; Workspace</div>
+    
+    <div class="cmd-item" onclick="copyCmd('horizonTheme.setWorkspaceAccent')">
+      <div class="cmd-name">horizonTheme.setWorkspaceAccent</div>
+      <div class="cmd-desc">Set a custom accent color for the current workspace (Title/Activity/Status bars)</div>
+      <div class="cmd-shortcut">Distinguish multiple project windows visually</div>
+    </div>
+    
+    <div class="cmd-item" onclick="copyCmd('horizonTheme.clearWorkspaceAccent')">
+      <div class="cmd-name">horizonTheme.clearWorkspaceAccent</div>
+      <div class="cmd-desc">Remove workspace accent color overrides and restore original theme</div>
+      <div class="cmd-shortcut">One-click reset</div>
+    </div>
+    
+    <div class="cmd-cat">🗂️ Icon Commands</div>
+    
+    <div class="cmd-item" onclick="copyCmd('horizonTheme.pickIcon')">
+      <div class="cmd-name">horizonTheme.pickIcon</div>
+      <div class="cmd-desc">Browse and assign any Horizon icon to a file extension, file name, or folder name</div>
+      <div class="cmd-shortcut">No manual JSON editing needed</div>
+    </div>
+    
+    <div class="cmd-cat">🏷️ Horizon Tags Commands</div>
+    
+    <div class="cmd-item" onclick="copyCmd('extension.horizonTags')">
+      <div class="cmd-name">extension.horizonTags</div>
+      <div class="cmd-desc">Manually trigger tag highlighting in the current file</div>
+      <div class="cmd-shortcut">Auto-runs on file changes</div>
+    </div>
+    
+    <div class="cmd-item" onclick="copyCmd('horizonTheme.toggleTagsEverywhere')">
+      <div class="cmd-name">horizonTheme.toggleTagsEverywhere</div>
+      <div class="cmd-desc">Toggle tag highlighting for all file types (not just HTML/XML/Vue)</div>
+      <div class="cmd-shortcut">Click tag counter in status bar</div>
+    </div>
+    
+    <div class="cmd-item" onclick="copyCmd('horizonTheme.refreshTagSummary')">
+      <div class="cmd-name">horizonTheme.refreshTagSummary</div>
+      <div class="cmd-desc">Refresh the Tag Summary tree view in the sidebar</div>
+      <div class="cmd-shortcut">Or click the refresh button in the panel</div>
+    </div>
+    
+    <div class="cmd-cat">🔤 Editor &amp; Fonts</div>
+    
+    <div class="cmd-item" onclick="copyCmd('horizonTheme.pickFont')">
+      <div class="cmd-name">horizonTheme.pickFont</div>
+      <div class="cmd-desc">Choose from 20 popular coding fonts and enable/disable ligatures</div>
+      <div class="cmd-shortcut">Sidebar → Settings → Font Picker</div>
+    </div>
+    
+    <div class="cmd-cat">📦 Backup &amp; Settings</div>
+    
+    <div class="cmd-item" onclick="copyCmd('horizonTheme.openSettings')">
+      <div class="cmd-name">horizonTheme.openSettings</div>
+      <div class="cmd-desc">Open Horizon Themes sidebar panel</div>
+      <div class="cmd-shortcut">Sidebar icon or command palette</div>
+    </div>
+    
+    <div class="cmd-item" onclick="copyCmd('horizonTheme.exportSettings')">
+      <div class="cmd-name">horizonTheme.exportSettings</div>
+      <div class="cmd-desc">Export all settings (theme, icons, colors, scheduler, editor prefs) to a JSON file</div>
+      <div class="cmd-shortcut">Sidebar → Settings → Export</div>
+    </div>
+    
+    <div class="cmd-item" onclick="copyCmd('horizonTheme.importSettings')">
+      <div class="cmd-name">horizonTheme.importSettings</div>
+      <div class="cmd-desc">Import settings from a JSON backup file</div>
+      <div class="cmd-shortcut">Sidebar → Settings → Import</div>
+    </div>
+    
+    <div class="cmd-item" onclick="copyCmd('horizonTheme.resetSettings')">
+      <div class="cmd-name">horizonTheme.resetSettings</div>
+      <div class="cmd-desc">Reset all Horizon settings to factory defaults</div>
+      <div class="cmd-shortcut">Sidebar → Settings → Reset</div>
+    </div>
+    
+    <div class="cmd-cat">📋 Quick Reference</div>
+    
+    <div class="cmd-tip">
+      <div class="tip-icon">💡</div>
+      <div class="tip-text">All commands are prefixed with <strong>horizonTheme.</strong> or <strong>extension.</strong> — just type "horizon" in the command palette to see them all!</div>
+    </div>
+    
+    <div class="cmd-tip">
+      <div class="tip-icon">⚡</div>
+      <div class="tip-text">Status bar items: <strong>✦ Horizon</strong> (quick theme switch) and <strong>✦ X tags</strong> (toggle tags everywhere)</div>
+    </div>
   </div>
 </div>
 
@@ -1209,11 +2263,29 @@ body{font-family:'Raleway',sans-serif;background:var(--bg);color:var(--txt);font
 <div class="panel" id="panel-changelog">
   <div class="sec">
     <div class="st">Release History</div>
-    <div class="cli"><div class="clv"><span class="cvb">v3.6.1</span><span class="cvd">2026</span><span class="cvt cn">LATEST</span></div><ul class="cll"><li>Built-in Horizon Product Icons (no extension needed)</li><li>Activity Bar, terminal, git, notifications &amp; explorer icons styled for Horizon</li><li>Live Preview disabled by default — toggle in Settings tab or header button</li><li>Full editor appearance controls (font, cursor, minimap, ligatures)</li><li>Theme Scheduler with day/night auto-switch</li><li>Export/Import/Reset settings backup system</li><li>4-tab sidebar UI — Themes / Settings / Changes / About</li><li>Sandrone, Yae Miko, Wanderer, Ayaka, Chiori, Skirk themes</li></ul></div>
-    <div class="cli"><div class="clv"><span class="cvb">v2.0.2</span><span class="cvd">2026</span><span class="cvt cm">UPDATE</span></div><ul class="cll"><li>Sidebar settings panel with Activity Bar integration</li><li>Theme Scheduler (auto day/night switching)</li><li>Export / Import settings as JSON</li><li>What's New notification on updates</li><li>Deep Blue promoted as recommended default</li></ul></div>
-    <div class="cli"><div class="clv"><span class="cvb">v2.0.0</span><span class="cvd">2026</span><span class="cvt cs2">MAJOR</span></div><ul class="cll"><li>Full rewrite of extension architecture</li><li>HSR: Cyrene, March 7th added</li><li>Genshin: Citlali, Layla, Mizuki, Sandrone</li><li>HorizonTags merged into core extension</li><li>Horizon Icons v2 — 400+ new file icons</li><li>Light variants for all Hoyoverse themes</li></ul></div>
-    <div class="cli"><div class="clv"><span class="cvb">v1.2.0</span><span class="cvd">2026</span><span class="cvt cn">NEW</span></div><ul class="cll"><li>Aventurine, Dan Heng, Yae Miko, Dottore</li><li>New Deep Blue core variant</li><li>Improved semantic token coloring</li></ul></div>
-    <div class="cli"><div class="clv"><span class="cvb">v1.0.0</span><span class="cvd">2026</span><span class="cvt cm">INITIAL</span></div><ul class="cll"><li>Initial release: Kafka, Firefly, Robin, Ganyu, Furina</li><li>Columbina, Scaramouche, Ruan Mei, Core Dark Plus</li><li>Horizon Icons v1 · HorizonTags rainbow highlighting</li></ul></div>
+    
+    <div class="cli"><div class="clv"><span class="cvb">v3.9.0</span><span class="cvd">2026</span><span class="cvt cn">LATEST</span></div><ul class="cll"><li>Export Theme Palette as Image — horizonTheme.exportPalette — Generates SVG with color swatches</li><li>Set Workspace Theme (Per-Project) — horizonTheme.setWorkspaceTheme</li><li>Set Workspace Accent Color — horizonTheme.setWorkspaceAccent</li><li>Clear Workspace Accent — horizonTheme.clearWorkspaceAccent</li><li>Onboarding Walkthrough — Interactive 5-step tour</li><li>Rate & Review Prompt — After 7 days + 50 activations</li><li>Tag Summary Tree View — Sidebar panel for Horizon Tags</li><li>Copy Theme Colors to Clipboard — JSON/CSS/Plain formats</li><li>Font Family Picker — 20 coding fonts + ligatures</li><li>Context Themes — Focus Mode & Zen Mode auto-switch</li><li>Performance Improvements — Debouncing, caching, memoized regex</li></ul></div>
+
+    <div class="cli"><div class="clv"><span class="cvb">v3.8.0</span><span class="cvd">2026</span><span class="cvt cm">UPDATE</span></div><ul class="cll"><li>VS Code for the Web compatibility</li></ul></div>
+
+    <div class="cli"><div class="clv"><span class="cvb">v3.7.0</span><span class="cvd">2026</span><span class="cvt cs2">MAJOR</span></div><ul class="cll"><li>New folder icons: debian, gemini, yaml, zed, claude, cursor, tailwind, vitepress</li><li>New file icons: capistrano, gemini, istanbul, jsonConfig, nixLock, rustDist, rustError, rustLint, elixirApp, elixirConfig, elixirEnv, elixirLint, phoenix, claude, cursor, gitCliff, gitCliffIgnore, kdl</li><li>Renamed yml → yaml icons</li><li>Fixed ejs files icon</li></ul></div>
+
+    <div class="cli"><div class="clv"><span class="cvb">v3.6.3</span><span class="cvd">2026</span><span class="cvt cm">UPDATE</span></div><ul class="cll"><li>Horizon Deep Blue color refinements — statusBar, titleBar, tab colors unified</li><li>New EJS icon</li></ul></div>
+
+    <div class="cli"><div class="clv"><span class="cvb">v3.6.2</span><span class="cvd">2026</span><span class="cvt cm">UPDATE</span></div><ul class="cll"><li>Bug fixes: sidebar panel, scheduler, backup/restore, random theme, HorizonTags, product icons, live preview</li><li>Export Theme Palette, Workspace Theme, Workspace Accent features</li><li>Onboarding Walkthrough & Rate & Review</li><li>Tag Summary Tree View & Copy Colors</li><li>Font Family Picker & Context Themes</li></ul></div>
+
+    <div class="cli"><div class="clv"><span class="cvb">v3.6.1</span><span class="cvd">2026</span><span class="cvt cn">NEW</span></div><ul class="cll"><li>Built-in Horizon Product Icons — 36 custom SVGs</li><li>Live Theme Preview — Hover to preview before applying</li><li>Sidebar Settings Panel — 4-tab UI</li><li>Theme Scheduler — Auto day/night switching</li><li>Backup & Restore — Export/Import to JSON</li><li>Random Theme command</li></ul></div>
+
+    <div class="cli"><div class="clv"><span class="cvb">v2.0.2</span><span class="cvd">2026</span><span class="cvt cm">UPDATE</span></div><ul class="cll"><li>Reduce Size</li></ul></div>
+
+    <div class="cli"><div class="clv"><span class="cvb">v2.0.1</span><span class="cvd">2026</span><span class="cvt cm">UPDATE</span></div><ul class="cll"><li>Fix some issues</li></ul></div>
+
+    <div class="cli"><div class="clv"><span class="cvb">v2.0.0</span><span class="cvd">2026</span><span class="cvt cs2">MAJOR</span></div><ul class="cll"><li>Horizon Tags — Tag-pair colorization for HTML/XML/Vue</li><li>+46 HoYoverse themes — Genshin Impact & Honkai Star Rail characters</li></ul></div>
+
+    <div class="cli"><div class="clv"><span class="cvb">v1.0.1</span><span class="cvd">2026</span><span class="cvt cm">UPDATE</span></div><ul class="cll"><li>Renamed themes to Horizon Themes Core: Deep Blue / Dark Plus / Modern Light</li><li>Renamed Horizon Icons</li></ul></div>
+
+    <div class="cli"><div class="clv"><span class="cvb">v1.0.0</span><span class="cvd">2026</span><span class="cvt cs2">INITIAL</span></div><ul class="cll"><li>Color Themes: Deep Blue, Dark Plus, Modern Light</li><li>Horizon Icons — 700+ file and folder icons</li></ul></div>
+
   </div>
 </div>
 
@@ -1226,8 +2298,8 @@ body{font-family:'Raleway',sans-serif;background:var(--bg);color:var(--txt);font
     <div class="abc">Copyright © 2026 Abdelrahman. All rights reserved.</div>
     <div class="srow">
       <div class="stat"><span class="sn">40+</span><span class="sl">Themes</span></div>
-      <div class="stat"><span class="sn">400+</span><span class="sl">Icons</span></div>
-      <div class="stat"><span class="sn">3.6.1</span><span class="sl">Version</span></div>
+      <div class="stat"><span class="sn">900+</span><span class="sl">Icons</span></div>
+      <div class="stat"><span class="sn">3.9.0</span><span class="sl">Version</span></div>
     </div>
   </div>
 
@@ -1244,6 +2316,7 @@ body{font-family:'Raleway',sans-serif;background:var(--bg);color:var(--txt);font
 
   <div class="sec">
     <div class="st">🔗 Links</div>
+     <button class="lbtn" onclick="ext('https://abdelrahman-portfolio-rho.vercel.app/')"><span class="la">👤</span>About the Developer<span class="larr">↗</span></button>
     <button class="lbtn" onclick="ext('https://github.com/Abdelrahman968/horizon-theme')"><span class="la">⬡</span>GitHub Repository<span class="larr">↗</span></button>
     <button class="lbtn" onclick="ext('https://marketplace.visualstudio.com/items?itemName=horizon-core.horizon-theme')"><span class="la">◈</span>VS Code Marketplace<span class="larr">↗</span></button>
     <button class="lbtn" onclick="ext('https://github.com/Abdelrahman968/horizon-theme/issues')"><span class="la">◎</span>Report an Issue<span class="larr">↗</span></button>
@@ -1256,12 +2329,14 @@ body{font-family:'Raleway',sans-serif;background:var(--bg);color:var(--txt);font
     <div class="ig">
       <div class="igr"><span class="igk">Publisher</span><span class="igv a">horizon-core</span></div>
       <div class="igr"><span class="igk">Extension ID</span><span class="igv" style="font-size:8px">horizon-core.horizon-theme</span></div>
-      <div class="igr"><span class="igk">Version</span><span class="igv">3.6.1</span></div>
+      <div class="igr"><span class="igk">Version</span><span class="igv">3.9.0</span></div>
       <div class="igr"><span class="igk">License</span><span class="igv g">MIT</span></div>
       <div class="igr"><span class="igk">VS Code req.</span><span class="igv">^1.90.0</span></div>
+      <div class="igr"><span class="igk">Support Web</span><span class="igv">True</span></div>
       <div class="igr"><span class="igk">Language</span><span class="igv">JavaScript ES2022</span></div>
       <div class="igr"><span class="igk">Copyright</span><span class="igv">© 2026 Abdelrahman</span></div>
       <div class="igr"><span class="igk">Repository</span><span class="igv a" style="cursor:pointer;font-size:8px" onclick="ext('https://github.com/Abdelrahman968/horizon-theme')">Abdelrahman968/horizon-theme</span></div>
+      <div class="igr"><span class="igk">Author</span><span class="igv a" style="cursor:pointer;font-size:8px" onclick="ext('https://abdelrahman-portfolio-rho.vercel.app/')">Abdelrahman968</span></div>
     </div>
   </div>
 
@@ -1273,12 +2348,22 @@ body{font-family:'Raleway',sans-serif;background:var(--bg);color:var(--txt);font
 <script>
 const vscode = acquireVsCodeApi();
 let previewOn = false, prevTmr = null;
-const THEMES=['horizon-core.deep-blue','horizon-core.dark-plus','horizon-core.modern-light','horizon-themes-ganyu-dark','horizon-themes-furina-dark','horizon-themes-scaramouche-dark','horizon-themes-columbina-dark','horizon-themes-citlali-dark','horizon-themes-skirk-dark','horizon-themes-wanderer-dark','horizon-themes-mizuki-dark','horizon-themes-sandrone-dark','horizon-themes-yaemiko-dark','horizon-themes-kafka-dark','horizon-themes-firefly-dark','horizon-themes-ruanmei-dark','horizon-themes-robin-dark','horizon-themes-aventurine-dark','horizon-themes-march7th-dark','horizon-themes-cyrene-dark','horizon-themes-danheng-dark'];
+const THEMES=${JSON.stringify(HORIZON_THEMES)};
 
 // Year
 const CY = new Date().getFullYear();
-document.getElementById('yr').textContent = CY;
 document.querySelectorAll('.yr2,.yr3').forEach(e=>e.textContent=CY);
+
+// Copy command function
+function copyCmd(cmd) {
+  navigator.clipboard.writeText(cmd);
+  // Create toast notification
+  const toast = document.createElement('div');
+  toast.className = 'copy-toast';
+  toast.innerHTML = '✓ Copied: ' + cmd;
+  document.body.appendChild(toast);
+  setTimeout(() => toast.remove(), 1500);
+}
 
 // Tabs
 function swTab(n,el){document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));el.classList.add('active');document.getElementById('panel-'+n).classList.add('active')}
@@ -1309,7 +2394,8 @@ function togI(id,key){const e=document.getElementById(id);e.classList.toggle('on
 function updS(k,v){vscode.postMessage({command:'updateSetting',key:k,value:v});}
 
 // Scheduler
-function saveSch(){vscode.postMessage({command:'saveScheduler',enabled:document.getElementById('togSch').classList.contains('on'),dayTheme:document.getElementById('sday').value,nightTheme:document.getElementById('snight').value,dayStart:document.getElementById('sdayT').value,nightStart:document.getElementById('snightT').value});}
+function toggleFollowSys(){const t=document.getElementById('togFollowSys');t.classList.toggle('on');const on=t.classList.contains('on');document.getElementById('schedDayTimeRow').style.display=on?'none':'';document.getElementById('schedNightTimeRow').style.display=on?'none':'';}
+function saveSch(){vscode.postMessage({command:'saveScheduler',enabled:document.getElementById('togSch').classList.contains('on'),followSystem:document.getElementById('togFollowSys').classList.contains('on'),dayTheme:document.getElementById('sday').value,nightTheme:document.getElementById('snight').value,dayStart:document.getElementById('sdayT').value,nightStart:document.getElementById('snightT').value});}
 
 // Backup
 function doExp(){vscode.postMessage({command:'exportSettings'});}
@@ -1357,7 +2443,11 @@ window.addEventListener('message',e=>{
   if(m.cursorBlinking){const s=document.getElementById('blinkSel');if(s)s.value=m.cursorBlinking;}
   if(m.allowEverywhere)document.getElementById('togEv')?.classList.add('on');
   if(m.tagStyle){const s=document.getElementById('tagSty');if(s)s.value=m.tagStyle;}
-  if(m.scheduler){const sc=m.scheduler;if(sc.enabled)document.getElementById('togSch')?.classList.add('on');if(sc.dayTheme){const s=document.getElementById('sday');if(s)s.value=sc.dayTheme;}if(sc.nightTheme){const s=document.getElementById('snight');if(s)s.value=sc.nightTheme;}if(sc.dayStart){const s=document.getElementById('sdayT');if(s)s.value=sc.dayStart;}if(sc.nightStart){const s=document.getElementById('snightT');if(s)s.value=sc.nightStart;}}
+  if(m.scheduler){const sc=m.scheduler;if(sc.enabled)document.getElementById('togSch')?.classList.add('on');if(sc.dayTheme){const s=document.getElementById('sday');if(s)s.value=sc.dayTheme;}if(sc.nightTheme){const s=document.getElementById('snight');if(s)s.value=sc.nightTheme;}if(sc.dayStart){const s=document.getElementById('sdayT');if(s)s.value=sc.dayStart;}if(sc.nightStart){const s=document.getElementById('snightT');if(s)s.value=sc.nightStart;}if(sc.followSystem){document.getElementById('togFollowSys')?.classList.add('on');const dr=document.getElementById('schedDayTimeRow'),nr=document.getElementById('schedNightTimeRow');if(dr)dr.style.display='none';if(nr)nr.style.display='none';}}
+  // Context Themes — populate selects with all Horizon themes
+  ['focusThmSel','zenThmSel'].forEach(id=>{const s=document.getElementById(id);if(!s)return;if(s.options.length<=1){THEMES.forEach(t=>{const o=document.createElement('option');o.value=t;o.textContent=t.replace(/^horizon-(core|themes)[-.]/,'').replace(/-dark$/,'').replace(/[-_.]/g,' ').replace(/\b\w/g,c=>c.toUpperCase());s.appendChild(o);});}});
+  if(m.focusModeTheme){const s=document.getElementById('focusThmSel');if(s)s.value=m.focusModeTheme;}
+  if(m.zenModeTheme){const s=document.getElementById('zenThmSel');if(s)s.value=m.zenModeTheme;}
 });
 
 vscode.postMessage({command:'getConfig'});
@@ -1369,33 +2459,78 @@ vscode.postMessage({command:'getConfig'});
 // ══════════════════════════════════════════════
 // HORIZON TAGS ENGINE
 // ══════════════════════════════════════════════
+// Document-version cache: skip full re-parse when text hasn't changed.
+const _tagCache = new Map(); // uri → { version, pairs }
+
+// Memoized tagRemover regex — rebuilt only when denylist changes.
+let _tagRemoverRe = null;
+function getTagRemoverRe() {
+  if (_tagRemoverRe) return _tagRemoverRe;
+  const cfg = getTagsConfig();
+  const cb = "([\\s\\S])*?";
+  const denyParts = [
+    ...cfg.denylistTagsFormattedEndings,
+    ...cfg.denylistTagsFormattedBeginnings,
+    ...cfg.denylistTagsFormattedBeginningsWithWhitespaces,
+    ...cfg.denylistTagsFormattedBeginningsWithLinebreaks,
+  ].map((s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+  _tagRemoverRe = new RegExp(
+    [
+      `<!--${cb}-->`,
+      `<script( ${cb})?>${cb}</script>`,
+      `<style( ${cb})?>${cb}</style>`,
+      ...(denyParts.length ? [denyParts.join("|")] : []),
+    ].join("|"),
+    "gi",
+  );
+  return _tagRemoverRe;
+}
+function invalidateTagRemoverRe() {
+  _tagRemoverRe = null;
+}
+
 function horizonTags(activeEditor) {
   if (!activeEditor || !activeEditor.document) return;
+  const cfg = getTagsConfig();
+  const allowEverywhereNow = cfg.allowEverywhere;
   if (
-    !supportedLanguages.includes(activeEditor.document.languageId) &&
-    allowEverywhere === false
-  )
+    !cfg.supportedLanguages.includes(activeEditor.document.languageId) &&
+    allowEverywhereNow === false
+  ) {
+    tagCountStatusBarItem.hide();
     return;
+  }
+
+  // Skip re-parse if the document hasn't changed since last run.
+  const docKey = activeEditor.document.uri.toString();
+  const docVersion = activeEditor.document.version;
+  const cached = _tagCache.get(docKey);
+  if (cached && cached.version === docVersion) {
+    // Reapply decorations from cache (editor may have been re-opened)
+    cached.decorations.forEach((ranges, i) => {
+      if (tagDecoratorList[i])
+        activeEditor.setDecorations(tagDecoratorList[i], ranges);
+    });
+    activeEditor.setDecorations(
+      isolatedRightBracketsDecorationTypes,
+      cached.rb,
+    );
+    tagCountStatusBarItem.text = `✦ ${cached.pairs.length} tag${cached.pairs.length === 1 ? "" : "s"}`;
+    cached.pairs.length
+      ? tagCountStatusBarItem.show()
+      : tagCountStatusBarItem.hide();
+    return;
+  }
+
   let text = activeEditor.document.getText();
   let map = tagDecoratorList.map(() => []);
+  let tagPairCount = 0;
+  const tagSummaryPairs = [];
   const tagRemover = (s) => {
-    let m;
-    const cb = "([\\s\\S])*?";
-    const re = new RegExp(
-      [
-        `<!--${cb}-->`,
-        `<script( ${cb})?>${cb}</script>`,
-        ...(isLanguageUsed(activeEditor, "vue")
-          ? [`{{${cb}}}`, `="${cb}"`]
-          : []),
-      ].join("|"),
-      "gm",
-    );
-    while ((m = re.exec(s))) {
-      const n = m[0].length;
-      s = s.substring(0, m.index) + " ".repeat(n) + s.substring(m.index + n);
-    }
-    return s;
+    // Use memoized regex — only rebuilt when denylist config changes.
+    const re = getTagRemoverRe();
+    re.lastIndex = 0;
+    return s.replace(re, (m) => " ".repeat(m.length));
   };
   const assignColors = (txt) => {
     const re = /(<(?!(\?|%))\/?[^]+?(?<!(\?|%))>)/g;
@@ -1434,6 +2569,12 @@ function horizonTags(activeEditor) {
           ce = activeEditor.document.positionAt(re.lastIndex);
         round = cnt;
         stack.push(round);
+        tagPairCount++;
+        tagSummaryPairs.push({
+          text: tag.replace(/[<>\/]/g, "").split(" ")[0],
+          line: sp.line,
+          char: sp.character,
+        });
         cnt++;
         if (cnt >= tagDecoratorList.length) cnt = 0;
         map[round].push({
@@ -1452,4 +2593,29 @@ function horizonTags(activeEditor) {
   };
   text = tagRemover(text);
   assignColors(text);
+
+  // Store in version cache so identical re-opens skip the full parse.
+  _tagCache.set(docKey, {
+    version: docVersion,
+    decorations: map,
+    rb: [], // rb is local to assignColors; cache the map only
+    pairs: tagSummaryPairs,
+  });
+  // Evict old entries to prevent unbounded growth (keep last 20 files)
+  if (_tagCache.size > 20) {
+    const firstKey = _tagCache.keys().next().value;
+    _tagCache.delete(firstKey);
+  }
+
+  if (tagPairCount > 0) {
+    tagCountStatusBarItem.text = `✦ ${tagPairCount} tag${
+      tagPairCount === 1 ? "" : "s"
+    }`;
+    tagCountStatusBarItem.tooltip =
+      "Horizon Tags: matched pairs in this file — click to toggle highlighting everywhere";
+    tagCountStatusBarItem.show();
+  } else {
+    tagCountStatusBarItem.hide();
+  }
+  tagSummaryProvider.updateFile(activeEditor.document.uri, tagSummaryPairs);
 }
