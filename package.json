@@ -2,7 +2,7 @@
   "name": "horizon-theme",
   "displayName": "Horizon Ultimate Themes",
   "description": "A collection of Horizon Themes with Core and Gamers editions, all paired with Horizon Icons and HorizonTags.",
-  "version": "3.9.0",
+  "version": "3.9.1",
   "publisher": "horizon-core",
   "license": "MIT",
   "icon": "icon.png",
@@ -193,7 +193,8 @@
             "title": "Choose a Theme",
             "description": "Browse Horizon's color themes and pick your favorite — or let it surprise you.\n[Quick Switch Theme](command:horizonTheme.quickSwitch)\n[Random Theme](command:horizonTheme.randomTheme)",
             "media": {
-              "markdown": "media/walkthrough/theme.md"
+              "image": "media/walkthrough/welcome.svg",
+              "altText": "Horizon Theme welcome banner"
             }
           },
           {
@@ -201,7 +202,8 @@
             "title": "Customize File Icons",
             "description": "Assign custom Horizon icons to specific file extensions, file names, or folders.\n[Assign a Custom Icon](command:horizonTheme.pickIcon)",
             "media": {
-              "markdown": "media/walkthrough/icons.md"
+              "image": "media/walkthrough/welcome.svg",
+              "altText": "Horizon Theme welcome banner"
             }
           },
           {
@@ -209,7 +211,8 @@
             "title": "Horizon Tags",
             "description": "Matching pairs of HTML/JSX/Vue tags are highlighted in different colors so nesting is easy to follow at a glance.\n[Toggle for All File Types](command:horizonTheme.toggleTagsEverywhere)",
             "media": {
-              "markdown": "media/walkthrough/tags.md"
+              "image": "media/walkthrough/welcome.svg",
+              "altText": "Horizon Theme welcome banner"
             }
           },
           {
@@ -217,7 +220,8 @@
             "title": "Auto-Switch Themes",
             "description": "Set up a day/night schedule, or follow your OS light/dark appearance automatically from the Horizon settings panel.\n[Open Horizon Settings](command:horizonTheme.openSettings)",
             "media": {
-              "markdown": "media/walkthrough/scheduler.md"
+              "image": "media/walkthrough/welcome.svg",
+              "altText": "Horizon Theme welcome banner"
             }
           },
           {
@@ -225,7 +229,8 @@
             "title": "Make Workspaces Stand Out",
             "description": "Give each project its own Horizon theme and accent color, so you never lose track of which window you're in.\n[Set Workspace Theme](command:horizonTheme.setWorkspaceTheme)\n[Set Workspace Accent](command:horizonTheme.setWorkspaceAccent)",
             "media": {
-              "markdown": "media/walkthrough/workspace.md"
+              "image": "media/walkthrough/welcome.svg",
+              "altText": "Horizon Theme welcome banner"
             }
           }
         ]

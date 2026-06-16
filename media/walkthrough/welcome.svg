@@ -1,0 +1,31 @@
+<svg width="800" height="450" viewBox="0 0 800 450" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#181D27"/>
+      <stop offset="100%" stop-color="#2A3142"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#5B8DEF"/>
+      <stop offset="100%" stop-color="#7C5CFC"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="800" height="450" fill="url(#bg)"/>
+
+  <circle cx="40" cy="40" r="6" fill="#FF5F56"/>
+  <circle cx="62" cy="40" r="6" fill="#FFBD2E"/>
+  <circle cx="84" cy="40" r="6" fill="#27C93F"/>
+
+  <rect x="40" y="90" width="220" height="14" rx="4" fill="url(#accent)" opacity="0.9"/>
+  <rect x="40" y="120" width="340" height="10" rx="4" fill="#3A4256"/>
+  <rect x="70" y="142" width="280" height="10" rx="4" fill="#3A4256"/>
+  <rect x="70" y="164" width="200" height="10" rx="4" fill="#3A4256"/>
+  <rect x="40" y="190" width="260" height="10" rx="4" fill="#3A4256"/>
+
+  <circle cx="620" cy="180" r="70" fill="url(#accent)" opacity="0.25"/>
+  <circle cx="620" cy="180" r="46" fill="url(#accent)"/>
+  <rect x="500" y="270" width="240" height="6" rx="3" fill="#3A4256"/>
+
+  <text x="40" y="280" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="34" font-weight="700" fill="#FFFFFF">Welcome to Horizon</text>
+  <text x="40" y="316" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="18" fill="#A8B3C7">Themes, icons, tags, and auto-switching — all in one place.</text>
+</svg>
