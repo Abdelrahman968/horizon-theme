@@ -144,8 +144,8 @@ var applyHorizonIcons = async (f) => {
   let T = JSON.stringify(f),
     base = vscode.extensions.getExtension(EXTENSION_ID).extensionUri,
     customUri = vscode.Uri.joinPath(base, "custom.json"),
-    iconUri = vscode.Uri.joinPath(base, "icon-theme.json"),
-    bkUri = vscode.Uri.joinPath(base, "icon-theme.json.bk");
+    iconUri = vscode.Uri.joinPath(base, "fileicons", "icon-theme.json"),
+    bkUri = vscode.Uri.joinPath(base, "fileicons", "icon-theme.json.bk");
 
   let existing = null;
   try {
@@ -188,7 +188,7 @@ async function pickHorizonIcon() {
   let iconNames;
   try {
     const base = vscode.extensions.getExtension(EXTENSION_ID).extensionUri;
-    const iconUri = vscode.Uri.joinPath(base, "icon-theme.json");
+    const iconUri = vscode.Uri.joinPath(base, "fileicons", "icon-theme.json");
     const theme = jsonc.parse(
       td.decode(await vscode.workspace.fs.readFile(iconUri)),
     );

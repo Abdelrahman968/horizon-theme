@@ -4,6 +4,10 @@ All notable changes to **Horizon Themes** will be documented in this file.
 
 ---
 
+## [3.9.2]
+
+- FIX File ICON
+
 ## [3.9.1]
 
 - Add Welcome SVG Image
